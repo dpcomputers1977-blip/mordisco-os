@@ -370,3 +370,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-s
 .roleRestricted{display:none!important}
 @media(max-width:1050px){.tablesGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.tableOrderLayout{grid-template-columns:1fr}.tablesHeader{align-items:flex-start;flex-direction:column}.tablesStats{width:100%}}
 @media(max-width:700px){.tablesGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.tablesToolbar{align-items:flex-start;flex-direction:column}.tablesToolbar .inlineForm{width:100%;flex-direction:column}.tablesToolbar input{max-width:none}.tablesStats{grid-template-columns:1fr}.tableOrderCard{width:100%;height:100%;max-height:100%;border-radius:0}}
+
+/* V10 — IDENTIFICACIÓN DE CAJERO */
+.posHeaderStats b{display:block;color:#fff;margin:2px 0 9px;font-size:.95rem}
+.orderStaff{margin:5px 0;color:var(--muted);font-size:.84rem}
+.clientAppLink{display:inline-flex;align-items:center;gap:6px;background:#ffc400;color:#111;text-decoration:none;font-weight:900;padding:10px 13px;border-radius:11px}

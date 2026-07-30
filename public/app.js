@@ -78,7 +78,7 @@ async function deleteProduct(id){if(!confirm('¿Eliminar este producto?'))return
 function resetCategory(){$('#categoryForm').reset();$('#cId').value='';$('#cSort').value=0;$('#cActive').checked=true} $('#clearCategory').onclick=resetCategory;
 $('#categoryForm').onsubmit=async e=>{e.preventDefault();const id=$('#cId').value,row={name:$('#cName').value.trim(),sort_order:Number($('#cSort').value||0),active:$('#cActive').checked};const {error}=await(id?db.from('categories').update(row).eq('id',id):db.from('categories').insert(row));if(error)return toast(error.message);resetCategory();await loadCategories();renderAll();toast('Categoría guardada')};
 function renderAdminCategories(){$('#adminCategories').innerHTML=categories.map(c=>`<article class="adminRow"><div></div><div><b>${esc(c.name)}</b><small>Orden ${c.sort_order} · ${c.active?'Activa':'Oculta'}</small></div><button data-edit-cat="${c.id}">Editar</button><button class="danger" data-delete-cat="${c.id}">Eliminar</button></article>`).join('');$$('[data-edit-cat]').forEach(b=>b.onclick=()=>{const c=categories.find(x=>x.id===b.dataset.editCat);$('#cId').value=c.id;$('#cName').value=c.name;$('#cSort').value=c.sort_order;$('#cActive').checked=c.active});$$('[data-delete-cat]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Eliminar categoría? Los productos quedarán sin categoría.'))return;const {error}=await db.from('categories').delete().eq('id',b.dataset.deleteCat);if(error)return toast(error.message);await loadCategories();await loadProducts();renderAll()})}
-async function loadOrders(){const {data,error}=await db.from('orders').select('*,order_items(*)').order('created_at',{ascending:false}).limit(100);if(error)return toast('Error cargando pedidos');orders=data||[];renderOrders();renderMetrics();renderKitchen()}
+async function loadOrders(){const {data,error}=await db.from('orders').select('*,order_items(*),cashier:staff!orders_cashier_id_fkey(name),waiter:staff!orders_waiter_id_fkey(name),restaurant_tables(name)').order('created_at',{ascending:false}).limit(100);if(error)return toast('Error cargando pedidos');orders=data||[];renderOrders();renderMetrics();renderKitchen()}
 const statusLabels={pending:'Pendiente',confirmed:'Confirmado',preparing:'Preparando',ready:'Listo',delivered:'Entregado',cancelled:'Cancelado'};
 function getFilteredOrders(){return orderStatusFilter==='all'?orders:orders.filter(o=>o.status===orderStatusFilter)}
 function renderOrders(){
@@ -267,7 +267,7 @@ function resetPosSale(){
   posCart=[];
   $('#posCustomer').value='';
   $('#posPhone').value='';
-  $('#posOrderType').value='local';$('#posCashier').value='';$('#posWaiter').value='';
+  $('#posOrderType').value='local';$('#posCashier').value=currentEmployee?.role==='cashier'?currentEmployee.id:'';$('#posWaiter').value='';
   $('#posPayment').value='cash';
   $('#posReceived').value='0';
   $('#posNotes').value='';
@@ -284,6 +284,8 @@ function buildReceipt(order,items,received){
   <div class="receiptLine"></div>
   <p><b>Pedido #${order.order_number}</b></p>
   <p>Cliente: ${esc(order.customer_name)}</p>
+  <p>Cajero: ${esc(order.cashier_name||$('#posCashier').selectedOptions[0]?.textContent||'No registrado')}</p>
+  ${order.waiter_name?`<p>Mesero: ${esc(order.waiter_name)}</p>`:''}
   <p>Tipo: ${orderTypeLabel(order.order_type)}</p>
   <div class="receiptLine"></div>
   ${items.map(i=>`<div class="receiptItem"><span>${i.quantity} × ${esc(i.product_name)}</span><b>${money(i.subtotal)}</b></div>`).join('')}
@@ -299,6 +301,7 @@ function buildReceipt(order,items,received){
 }
 async function completePosSale(){
   if(!posCart.length)return toast('Agrega al menos un producto');
+  if(!$('#posCashier').value)return toast('Selecciona el cajero que realiza el cobro');
   const totals=posTotals();
   const payment=$('#posPayment').value;
   const received=Number($('#posReceived').value||0);
@@ -332,7 +335,7 @@ async function completePosSale(){
   const {error:itemError}=await db.from('order_items').insert(items);
   chargeBtn.disabled=false;chargeBtn.textContent='Cobrar y enviar a cocina';
   if(itemError)return toast('La venta se creó, pero fallaron los detalles: '+itemError.message);
-  lastReceiptOrder={order:data,items,received};
+  data.cashier_name=$('#posCashier').selectedOptions[0]?.textContent||'';data.waiter_name=$('#posWaiter').selectedOptions[0]?.textContent||'';lastReceiptOrder={order:data,items,received};
   $('#receiptContent').innerHTML=buildReceipt(data,items,received);
   $('#receiptModal').classList.remove('hidden');
   resetPosSale();
@@ -342,6 +345,7 @@ async function completePosSale(){
 $('#posSearch').oninput=renderPosProducts;
 $('#posCategory').onchange=renderPosProducts;
 $('#posPayment').onchange=updatePosChange;
+$('#posCashier').onchange=()=>{if($('#activeCashierName'))$('#activeCashierName').textContent=$('#posCashier').selectedOptions[0]?.textContent||'Sin seleccionar'};
 $('#posReceived').oninput=updatePosChange;
 $('#posClear').onclick=()=>{if(!posCart.length||confirm('¿Vaciar la venta actual?'))resetPosSale()};
 $('#posCharge').onclick=completePosSale;
@@ -586,8 +590,11 @@ function fillPosStaff(){
   const waiterCurrent=$('#posWaiter').value;
   $('#posCashier').innerHTML='<option value="">Seleccionar cajero</option>'+staffMembers.filter(s=>s.active&&s.role==='cashier').map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
   $('#posWaiter').innerHTML='<option value="">Sin mesero</option>'+staffMembers.filter(s=>s.active&&s.role==='waiter').map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
-  $('#posCashier').value=[...$('#posCashier').options].some(o=>o.value===cashierCurrent)?cashierCurrent:'';
+  const forcedCashier=currentEmployee?.role==='cashier'?currentEmployee.id:cashierCurrent;
+  $('#posCashier').value=[...$('#posCashier').options].some(o=>o.value===forcedCashier)?forcedCashier:'';
+  $('#posCashier').disabled=currentEmployee?.role==='cashier';
   $('#posWaiter').value=[...$('#posWaiter').options].some(o=>o.value===waiterCurrent)?waiterCurrent:'';
+  if($('#activeCashierName'))$('#activeCashierName').textContent=currentEmployee?.role==='cashier'?currentEmployee.name:($('#posCashier').selectedOptions[0]?.textContent||'Sin seleccionar');
 }
 function resetStaffForm(){
   $('#staffForm').reset();$('#staffId').value='';$('#staffActive').checked=true;$('#staffPin').value='';
@@ -623,6 +630,18 @@ function fillEmployeeLogin(){
 }
 function applyEmployeePermissions(employee){
   currentEmployee=employee;localStorage.setItem('mordisco_employee',JSON.stringify(employee));
+  if(employee.role==='cashier'){
+    setTimeout(()=>{
+      if($('#posCashier')){
+        $('#posCashier').value=employee.id;
+        $('#posCashier').disabled=true;
+      }
+      if($('#activeCashierName'))$('#activeCashierName').textContent=employee.name;
+    },0);
+  }else{
+    if($('#posCashier'))$('#posCashier').disabled=false;
+    if($('#activeCashierName'))$('#activeCashierName').textContent='Sin seleccionar';
+  }
   const allowed={waiter:['tables','orders'],cashier:['pos','orders','tables'],kitchen:['kitchen'],admin:['dashboard','products','categories','orders','kitchen','pos','inventory','tables','staff','settings']}[employee.role]||[];
   $$('.sidebar [data-tab]').forEach(b=>b.classList.toggle('roleRestricted',!allowed.includes(b.dataset.tab)));
   $('#logoutBtn').textContent='Cerrar turno';
