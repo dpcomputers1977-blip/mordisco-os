@@ -18,6 +18,10 @@
   ],
   "rewrites": [
     {
+      "source": "/comandas",
+      "destination": "/comandas.html"
+    },
+    {
       "source": "/app",
       "destination": "/app.html"
     },
