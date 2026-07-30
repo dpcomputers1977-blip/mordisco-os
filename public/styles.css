@@ -388,3 +388,23 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-s
 .dataTable{width:100%;border-collapse:collapse}.dataTable th,.dataTable td{padding:11px;border-bottom:1px solid #ece5da;text-align:left;font-size:.88rem}.dataTable th{font-size:.76rem;text-transform:uppercase;color:var(--muted)}
 .tableWrap{overflow:auto}
 @media(max-width:700px){.shiftSummaryGrid{grid-template-columns:repeat(2,1fr)}}
+
+/* V12 — PLATAFORMA COMPLETA */
+.publicFooter{background:#11100e;color:#a9a197;padding:22px 4vw;display:flex;justify-content:space-between;align-items:center}
+.privateAccess{display:flex;gap:10px;align-items:center;opacity:.28;transition:.2s}.privateAccess:hover{opacity:.9}
+.privateAccess a,.privateAccess button{font-size:.7rem;color:#fff;background:transparent;border:0;text-decoration:none;cursor:pointer;padding:5px}
+.publicLinkButton{text-decoration:none;display:inline-flex;align-items:center}
+.promoHomeSection{padding:70px 5vw;background:#f3eee6}
+.promotionGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.promotionCard{background:#171512;color:#fff;border-radius:22px;overflow:hidden;position:relative;min-height:280px;display:flex;flex-direction:column}
+.promotionCard img{width:100%;height:165px;object-fit:cover}.promotionCardBody{padding:18px;flex:1}.promotionCard h3{margin:7px 0;font-size:1.35rem}
+.promotionCard p{color:#d6cfc5}.promotionBadge{display:inline-block;background:#ffc400;color:#111;padding:5px 9px;border-radius:999px;font-size:.72rem;font-weight:900}
+.promotionCard a{color:#ffc400;font-weight:900;text-decoration:none}.promotionPrice{font-size:1.35rem;color:#ffc400}
+.financeGrid,.customersGrid{grid-template-columns:minmax(320px,.75fr) minmax(500px,1.25fr)}
+.customerAdminList{display:grid;gap:10px;max-height:720px;overflow:auto}
+.customerCardAdmin{border:1px solid #e6ded2;border-radius:14px;padding:14px;display:grid;grid-template-columns:1fr auto;gap:8px}
+.customerCardAdmin small{display:block;color:var(--muted);margin-top:4px}.customerTag{display:inline-block;padding:4px 8px;border-radius:999px;background:#f2eadc;font-size:.7rem;font-weight:800}
+.pagePublicHero{min-height:430px;background:#171512;color:#fff;display:grid;place-items:center;text-align:center;padding:70px 8vw;background-size:cover;background-position:center;position:relative}
+.pagePublicHero:before{content:"";position:absolute;inset:0;background:#0009}.pagePublicHero>div{position:relative;max-width:800px}.pagePublicHero h1{font-size:clamp(2.4rem,6vw,5rem);margin:0 0 18px}.pageContent{max-width:900px;margin:auto;padding:60px 24px;line-height:1.8;white-space:pre-wrap}
+@media(max-width:900px){.promotionGrid{grid-template-columns:1fr 1fr}.financeGrid,.customersGrid{grid-template-columns:1fr}}
+@media(max-width:600px){.promotionGrid{grid-template-columns:1fr}.privateAccess{opacity:.18}}

@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#11100e">
 <title>Mordisco Fast Food</title>
-<link rel="stylesheet" href="styles.css?v=11.0.0">
+<link rel="stylesheet" href="styles.css?v=12.0.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <header class="topbar">
   <a class="brand" href="#inicio"><img src="media/logo.png" alt="Mordisco"><span>MORDISCO</span></a>
-  <nav><a href="#inicio">Inicio</a><a href="#menu">Menú</a><a href="#contacto">Contacto</a></nav>
-  <div class="top-actions"><button class="ghost" id="adminBtn">Administrar</button><button class="cartBtn" id="cartBtn">🛒 <b id="cartCount">0</b></button></div>
+  <nav><a href="#inicio">Inicio</a><a href="#menu">Menú</a><a href="/promociones">Promociones</a><a href="#contacto">Contacto</a></nav>
+  <div class="top-actions"><button class="cartBtn" id="cartBtn">🛒 <b id="cartCount">0</b></button></div>
 <a class="clientAppLink" href="/app">📱 Pedir desde la app</a></header>
 
 <main id="publicView">
@@ -25,6 +25,10 @@
 
 <section class="benefits"><article>🚚 <b>Delivery</b><span>Directo a tu puerta</span></article><article>🏪 <b>Retiro</b><span>Pide y pasa por él</span></article><article>🍽️ <b>En el local</b><span>Disfrútalo recién hecho</span></article></section>
 
+<section class="promoHomeSection">
+ <div class="sectionHead"><div><span class="eyebrow">OFERTAS ESPECIALES</span><h2>Promociones para disfrutar</h2></div><a class="dark publicLinkButton" href="/promociones">Ver todas</a></div>
+ <div id="homePromotions" class="promotionGrid"></div>
+</section>
 <section class="menuSection" id="menu">
  <div class="sectionHead"><div><span class="eyebrow">NUESTRO MENÚ</span><h2>Elige tu próximo mordisco</h2></div><input id="searchInput" placeholder="Buscar producto..."></div>
  <div class="categories" id="categoryFilters"></div>
@@ -33,10 +37,17 @@
 </section>
 
 <section class="contact" id="contacto"><div><span class="eyebrow">PIDE DIRECTO</span><h2>Tu próximo mordisco está cerca.</h2><p>📍 <span id="businessAddress">Dirección por configurar</span></p><p>🕒 <span id="businessSchedule">Horario por configurar</span></p></div><button class="primary" id="orderNowBtn">Hacer pedido</button></section>
+<footer class="publicFooter">
+  <span>© Mordisco Fast Food</span>
+  <div class="privateAccess">
+    <a href="/staff" title="Portal del personal">Personal</a>
+    <button id="adminBtn" title="Administración">•</button>
+  </div>
+</footer>
 </main>
 
 <section id="adminView" class="hidden adminShell">
- <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard"><span>▦</span> Resumen</button><button data-tab="products" class="active"><span>🍔</span> Productos</button><button data-tab="categories"><span>▤</span> Categorías</button><button data-tab="orders"><span>◫</span> Pedidos</button><button data-tab="kitchen"><span>♨</span> Cocina</button><button data-tab="pos"><span>▣</span> POS / Caja</button><button data-tab="inventory"><span>◇</span> Inventario</button><button data-tab="tables"><span>🍽</span> Mesas</button><button data-tab="shifts"><span>🕒</span> Turnos</button><button data-tab="staff"><span>👥</span> Personal</button><button data-tab="settings"><span>⚙</span> Negocio</button><button id="logoutBtn"><span>↪</span> Cerrar sesión</button><button id="backToStore"><span>↗</span> Ver página</button></aside>
+ <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard"><span>▦</span> Resumen</button><button data-tab="products" class="active"><span>🍔</span> Productos</button><button data-tab="categories"><span>▤</span> Categorías</button><button data-tab="orders"><span>◫</span> Pedidos</button><button data-tab="kitchen"><span>♨</span> Cocina</button><button data-tab="pos"><span>▣</span> POS / Caja</button><button data-tab="inventory"><span>◇</span> Inventario</button><button data-tab="tables"><span>🍽</span> Mesas</button><button data-tab="shifts"><span>🕒</span> Turnos</button><button data-tab="finance"><span>💰</span> Contabilidad</button><button data-tab="customers"><span>👤</span> Clientes</button><button data-tab="promotions"><span>🎁</span> Promociones</button><button data-tab="pages"><span>📄</span> Páginas</button><button data-tab="staff"><span>👥</span> Personal</button><button data-tab="settings"><span>⚙</span> Negocio</button><button id="logoutBtn"><span>↪</span> Cerrar sesión</button><button id="backToStore"><span>↗</span> Ver página</button></aside>
  <div class="adminContent">
    <div class="adminTop"><div><span class="eyebrow">MORDISCO OS CLOUD</span><h1 id="adminTitle">Productos</h1></div><span class="cloudStatus">● Conectado a Supabase</span></div>
    <section id="tab-dashboard" class="tab hidden">
@@ -362,7 +373,120 @@
       </div>
    </section>
 
-   <section id="tab-staff" class="tab hidden">
+   
+<section id="tab-finance" class="tab hidden">
+  <div class="tablesHeader">
+    <div><h2>Contabilidad</h2><p>Ingresos, egresos y resultado del negocio.</p></div>
+    <div class="tablesStats">
+      <div><span>Ingresos</span><strong id="financeIncome">$0.00</strong></div>
+      <div><span>Egresos</span><strong id="financeExpense">$0.00</strong></div>
+      <div><span>Resultado</span><strong id="financeBalance">$0.00</strong></div>
+    </div>
+  </div>
+  <div class="dashboardGrid financeGrid">
+    <form id="financeForm" class="panel formGrid">
+      <input type="hidden" id="financeId">
+      <h3 class="wide">Nuevo movimiento</h3>
+      <label>Tipo<select id="financeType"><option value="income">Ingreso</option><option value="expense">Egreso</option></select></label>
+      <label>Categoría<select id="financeCategory">
+        <option>Ventas</option><option>Compra de insumos</option><option>Proveedores</option>
+        <option>Sueldos</option><option>Servicios</option><option>Transporte</option>
+        <option>Mantenimiento</option><option>Publicidad</option><option>Otros</option>
+      </select></label>
+      <label>Monto<input id="financeAmount" type="number" min="0.01" step="0.01" required></label>
+      <label>Método<select id="financeMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
+      <label>Fecha<input id="financeDate" type="date" required></label>
+      <label>Referencia<input id="financeReference" placeholder="Factura o comprobante"></label>
+      <label class="wide">Descripción<textarea id="financeDescription" required></textarea></label>
+      <div class="wide"><button class="primary">Guardar movimiento</button><button type="button" class="dark" id="clearFinance">Limpiar</button></div>
+    </form>
+    <section class="panel">
+      <div class="panelTitle"><h3>Movimientos</h3><div><input id="financeMonth" type="month"><button class="dark" id="refreshFinance">Actualizar</button></div></div>
+      <div class="tableWrap"><table class="dataTable">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Descripción</th><th>Método</th><th>Monto</th><th></th></tr></thead>
+        <tbody id="financeBody"></tbody>
+      </table></div>
+    </section>
+  </div>
+</section>
+
+<section id="tab-customers" class="tab hidden">
+  <div class="tablesHeader">
+    <div><h2>Base de clientes</h2><p>Información, historial y fidelización.</p></div>
+    <div class="tablesStats">
+      <div><span>Clientes</span><strong id="customerCount">0</strong></div>
+      <div><span>Frecuentes</span><strong id="frequentCount">0</strong></div>
+      <div><span>VIP</span><strong id="vipCount">0</strong></div>
+    </div>
+  </div>
+  <div class="dashboardGrid customersGrid">
+    <form id="customerFormAdmin" class="panel formGrid">
+      <input type="hidden" id="customerIdAdmin">
+      <h3 class="wide">Agregar o editar cliente</h3>
+      <label>Nombre<input id="customerFullName" required></label>
+      <label>Teléfono / WhatsApp<input id="customerPhoneAdmin" required></label>
+      <label>Correo<input id="customerEmailAdmin" type="email"></label>
+      <label>Cumpleaños<input id="customerBirthday" type="date"></label>
+      <label class="wide">Dirección<textarea id="customerAddressAdmin"></textarea></label>
+      <label>Clasificación<select id="customerTier"><option value="new">Nuevo</option><option value="frequent">Frecuente</option><option value="vip">VIP</option></select></label>
+      <label>Puntos<input id="customerPoints" type="number" min="0" value="0"></label>
+      <label class="wide">Notas<textarea id="customerNotesAdmin"></textarea></label>
+      <label class="check"><input id="customerActiveAdmin" type="checkbox" checked> Activo</label>
+      <div class="wide"><button class="primary">Guardar cliente</button><button type="button" class="dark" id="clearCustomerAdmin">Limpiar</button></div>
+    </form>
+    <section class="panel">
+      <div class="panelTitle"><h3>Clientes registrados</h3><input id="customerAdminSearch" placeholder="Buscar nombre, teléfono o correo"></div>
+      <div id="customerAdminList" class="customerAdminList"></div>
+    </section>
+  </div>
+</section>
+
+<section id="tab-promotions" class="tab hidden">
+  <div class="tablesHeader"><div><h2>Promociones</h2><p>Crea campañas visibles en la web.</p></div></div>
+  <div class="dashboardGrid">
+    <form id="promotionForm" class="panel formGrid">
+      <input type="hidden" id="promotionId">
+      <h3 class="wide">Crear promoción</h3>
+      <label>Título<input id="promotionTitle" required></label>
+      <label>Etiqueta<input id="promotionBadge" placeholder="2x1, Nuevo, Oferta"></label>
+      <label class="wide">Descripción<textarea id="promotionDescription" required></textarea></label>
+      <label>Precio promocional<input id="promotionPrice" type="number" min="0" step="0.01"></label>
+      <label>Imagen URL<input id="promotionImage" placeholder="https://..."></label>
+      <label>Inicio<input id="promotionStart" type="date"></label>
+      <label>Final<input id="promotionEnd" type="date"></label>
+      <label>Enlace<input id="promotionLink" placeholder="/pagina/combo-del-mes"></label>
+      <label>Orden<input id="promotionSort" type="number" value="0"></label>
+      <label class="check"><input id="promotionFeatured" type="checkbox"> Destacada en inicio</label>
+      <label class="check"><input id="promotionActive" type="checkbox" checked> Publicada</label>
+      <div class="wide"><button class="primary">Guardar promoción</button><button type="button" class="dark" id="clearPromotion">Limpiar</button></div>
+    </form>
+    <section class="panel"><h3>Promociones creadas</h3><div id="adminPromotionList" class="adminList"></div></section>
+  </div>
+</section>
+
+<section id="tab-pages" class="tab hidden">
+  <div class="tablesHeader"><div><h2>Subpáginas</h2><p>Crea páginas para campañas, eventos, información y promociones.</p></div></div>
+  <div class="dashboardGrid">
+    <form id="pageForm" class="panel formGrid">
+      <input type="hidden" id="pageId">
+      <h3 class="wide">Editor de página</h3>
+      <label>Título<input id="pageTitle" required></label>
+      <label>Dirección URL<input id="pageSlug" required placeholder="combo-del-mes"></label>
+      <label class="wide">Resumen<textarea id="pageSummary"></textarea></label>
+      <label class="wide">Imagen principal URL<input id="pageHeroImage" placeholder="https://..."></label>
+      <label class="wide">Contenido<textarea id="pageContent" rows="12" required placeholder="Escribe el contenido de la página..."></textarea></label>
+      <label>Texto del botón<input id="pageButtonText" placeholder="Pedir ahora"></label>
+      <label>Enlace del botón<input id="pageButtonLink" placeholder="/app"></label>
+      <label>Orden<input id="pageSort" type="number" value="0"></label>
+      <label class="check"><input id="pageShowMenu" type="checkbox"> Mostrar en navegación</label>
+      <label class="check"><input id="pagePublished" type="checkbox" checked> Publicada</label>
+      <div class="wide"><button class="primary">Guardar página</button><button type="button" class="dark" id="clearPage">Limpiar</button></div>
+    </form>
+    <section class="panel"><h3>Páginas creadas</h3><div id="adminPageList" class="adminList"></div></section>
+  </div>
+</section>
+
+<section id="tab-staff" class="tab hidden">
       <div class="staffHeader">
         <div>
           <h2>Personal</h2>
@@ -500,5 +624,5 @@
   </div>
 </div>
 <div id="toast" class="toast"></div>
-<script src="app.js?v=11.0.0"></script>
+<script src="app.js?v=12.0.0"></script>
 </body></html>
