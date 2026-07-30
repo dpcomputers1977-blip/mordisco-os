@@ -2,7 +2,7 @@
 const SUPABASE_URL='https://nmmjthqflxwucpmmmrks.supabase.co';
 const SUPABASE_KEY='sb_publishable_izCztp4wZ0MzKOHjT2KGYA_ot_3pgb0';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let products=[],categories=[],settings={},orders=[],cart=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null;
+let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
@@ -12,7 +12,7 @@ async function loadCategories(){const {data,error}=await db.from('categories').s
 async function loadProducts(){const {data,error}=await db.from('products').select('*,categories(name)').order('sort_order');$('#loadingProducts').classList.add('hidden');if(error)return toast('Error cargando productos');products=data||[]}
 async function loadSettings(){const {data}=await db.from('business_settings').select('*').eq('id',1).maybeSingle();settings=data||{};applySettings()}
 function applySettings(){$('#businessDescription').textContent=settings.description||'El mejor sabor para compartir.';$('#businessAddress').textContent=settings.address||'Dirección por configurar';$('#businessSchedule').textContent=settings.schedule||'Horario por configurar'}
-function renderAll(){renderFilters();renderProducts();renderCart();renderAdminProducts();renderAdminCategories();fillCategorySelect();fillSettings()}
+function renderAll(){renderFilters();renderProducts();renderCart();renderAdminProducts();renderAdminCategories();fillCategorySelect();fillSettings();fillPosCategories();renderPosProducts();renderPosCart()}
 function renderFilters(){const names=['Todos',...categories.filter(c=>c.active).map(c=>c.name)];$('#categoryFilters').innerHTML=names.map(n=>`<button class="${n===selectedCategory?'active':''}" data-cat="${esc(n)}">${esc(n)}</button>`).join('');$$('[data-cat]').forEach(b=>b.onclick=()=>{selectedCategory=b.dataset.cat;renderFilters();renderProducts()})}
 function filteredProducts(){const q=$('#searchInput').value.toLowerCase();return products.filter(p=>p.active&&(selectedCategory==='Todos'||p.categories?.name===selectedCategory)&&(`${p.name} ${p.description||''}`).toLowerCase().includes(q))}
 function renderProducts(){const list=filteredProducts();$('#productGrid').innerHTML=list.length?list.map(p=>`<article class="productCard">${p.featured?'<span class="featured">Favorito</span>':''}<div class="productImage">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="noImage">Sin imagen</div>'}</div><div class="productBody"><small>${esc(p.categories?.name||'Sin categoría')}</small><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="productFoot"><strong>${money(p.price)}</strong><button data-add="${p.id}">+ Agregar</button></div></div></article>`).join(''):'<div class="notice">No hay productos disponibles.</div>';$$('[data-add]').forEach(b=>b.onclick=()=>addCart(b.dataset.add))}
@@ -32,7 +32,7 @@ async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.get
 function showAdmin(){$('#publicView').classList.add('hidden');$('.topbar').classList.add('hidden');$('#adminView').classList.remove('hidden')}
 function showStore(){$('#adminView').classList.add('hidden');$('#publicView').classList.remove('hidden');$('.topbar').classList.remove('hidden')}
 $('#backToStore').onclick=showStore;$('#logoutBtn').onclick=async()=>{await db.auth.signOut();showStore();toast('Sesión cerrada')};
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock()});
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}});
 function fillCategorySelect(){$('#pCategory').innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
 function resetProduct(){$('#productForm').reset();$('#pId').value='';$('#pActive').checked=true;$('#pSort').value=0;editingImage='';updatePreview('')}
 function updatePreview(src){$('#pPreview').src=src||'';$('#pPreview').classList.toggle('hidden',!src);$('#pNoImage').classList.toggle('hidden',!!src);$('#removeProductImage').classList.toggle('hidden',!src)}
@@ -189,6 +189,162 @@ $('#dashboardRefresh').onclick=loadOrders;
 $('#adminProductSearch').oninput=e=>{adminProductQuery=e.target.value;renderAdminProducts()};
 $('#adminProductFilter').onchange=e=>{adminProductFilter=e.target.value;renderAdminProducts()};
 $('#orderStatusFilter').onchange=e=>{orderStatusFilter=e.target.value;renderOrders()};
+
+function fillPosCategories(){
+  const current=$('#posCategory')?.value||'all';
+  if(!$('#posCategory'))return;
+  $('#posCategory').innerHTML='<option value="all">Todas las categorías</option>'+categories.filter(c=>c.active).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  $('#posCategory').value=[...$('#posCategory').options].some(o=>o.value===current)?current:'all';
+}
+function getPosProducts(){
+  const q=($('#posSearch')?.value||'').trim().toLowerCase();
+  const category=$('#posCategory')?.value||'all';
+  return products.filter(p=>p.active&&(category==='all'||String(p.category_id)===String(category))&&(`${p.name} ${p.description||''}`).toLowerCase().includes(q));
+}
+function renderPosProducts(){
+  if(!$('#posProducts'))return;
+  const list=getPosProducts();
+  $('#posProducts').innerHTML=list.length?list.map(p=>`<button class="posProduct" data-pos-add="${p.id}">
+    ${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="posProductNoImage">Sin imagen</div>'}
+    <span class="posProductInfo"><small>${esc(p.categories?.name||'Sin categoría')}</small><b>${esc(p.name)}</b><strong>${money(p.price)}</strong></span>
+  </button>`).join(''):'<div class="notice">No hay productos disponibles.</div>';
+  $$('[data-pos-add]').forEach(b=>b.onclick=()=>addPosItem(b.dataset.posAdd));
+}
+function addPosItem(id){
+  const item=posCart.find(x=>String(x.id)===String(id));
+  if(item)item.qty++;
+  else posCart.push({id,qty:1});
+  renderPosCart();
+}
+function changePosQty(id,delta){
+  const item=posCart.find(x=>String(x.id)===String(id));
+  if(!item)return;
+  item.qty+=delta;
+  posCart=posCart.filter(x=>x.qty>0);
+  renderPosCart();
+}
+function removePosItem(id){
+  posCart=posCart.filter(x=>String(x.id)!==String(id));
+  renderPosCart();
+}
+function posTotals(){
+  const subtotal=posCart.reduce((sum,item)=>{
+    const p=products.find(x=>String(x.id)===String(item.id));
+    return sum+(p?Number(p.price)*item.qty:0);
+  },0);
+  return{subtotal,total:subtotal};
+}
+function updatePosChange(){
+  if(!$('#posReceived'))return;
+  const total=posTotals().total;
+  const received=Number($('#posReceived').value||0);
+  const cash=$('#posPayment').value==='cash';
+  $('#posReceivedWrap').classList.toggle('hidden',!cash);
+  $('#posChange').textContent=money(cash?Math.max(0,received-total):0);
+}
+function renderPosCart(){
+  if(!$('#posCart'))return;
+  $('#posCart').innerHTML=posCart.length?posCart.map(item=>{
+    const p=products.find(x=>String(x.id)===String(item.id));
+    if(!p)return'';
+    return `<div class="posCartRow">
+      <div class="posCartRowMain"><b>${esc(p.name)}</b><small>${money(p.price)} c/u</small>
+        <div class="posQty"><button data-pos-minus="${p.id}">−</button><span>${item.qty}</span><button data-pos-plus="${p.id}">+</button></div>
+      </div>
+      <div class="posCartPrice">${money(Number(p.price)*item.qty)}<button class="posRemove" data-pos-remove="${p.id}">Eliminar</button></div>
+    </div>`;
+  }).join(''):'<div class="posEmpty">Selecciona productos para comenzar.</div>';
+  $$('[data-pos-minus]').forEach(b=>b.onclick=()=>changePosQty(b.dataset.posMinus,-1));
+  $$('[data-pos-plus]').forEach(b=>b.onclick=()=>changePosQty(b.dataset.posPlus,1));
+  $$('[data-pos-remove]').forEach(b=>b.onclick=()=>removePosItem(b.dataset.posRemove));
+  const total=posTotals();
+  $('#posSubtotal').textContent=money(total.subtotal);
+  $('#posTotal').textContent=money(total.total);
+  $('#posHeaderTotal').textContent=money(total.total);
+  updatePosChange();
+}
+function resetPosSale(){
+  posCart=[];
+  $('#posCustomer').value='';
+  $('#posPhone').value='';
+  $('#posOrderType').value='local';
+  $('#posPayment').value='cash';
+  $('#posReceived').value='0';
+  $('#posNotes').value='';
+  renderPosCart();
+}
+function paymentLabel(value){return({cash:'Efectivo',card:'Tarjeta',transfer:'Transferencia'})[value]||value}
+function buildReceipt(order,items,received){
+  const change=order.payment_method==='cash'?Math.max(0,Number(received)-Number(order.total)):0;
+  return `<div class="receiptBrand">
+    <h2>${esc(settings.business_name||'MORDISCO FAST FOOD')}</h2>
+    <p>Comprobante de venta</p>
+    <p>${new Date(order.created_at||Date.now()).toLocaleString('es-EC')}</p>
+  </div>
+  <div class="receiptLine"></div>
+  <p><b>Pedido #${order.order_number}</b></p>
+  <p>Cliente: ${esc(order.customer_name)}</p>
+  <p>Tipo: ${orderTypeLabel(order.order_type)}</p>
+  <div class="receiptLine"></div>
+  ${items.map(i=>`<div class="receiptItem"><span>${i.quantity} × ${esc(i.product_name)}</span><b>${money(i.subtotal)}</b></div>`).join('')}
+  <div class="receiptLine"></div>
+  <div class="receiptSummary">
+    <div><span>Subtotal</span><b>${money(order.subtotal)}</b></div>
+    <div class="receiptGrand"><span>TOTAL</span><b>${money(order.total)}</b></div>
+    <div><span>Pago</span><b>${paymentLabel(order.payment_method)}</b></div>
+    ${order.payment_method==='cash'?`<div><span>Recibido</span><b>${money(received)}</b></div><div><span>Cambio</span><b>${money(change)}</b></div>`:''}
+  </div>
+  <div class="receiptLine"></div>
+  <p>¡Gracias por tu compra!</p>`;
+}
+async function completePosSale(){
+  if(!posCart.length)return toast('Agrega al menos un producto');
+  const totals=posTotals();
+  const payment=$('#posPayment').value;
+  const received=Number($('#posReceived').value||0);
+  if(payment==='cash'&&received<totals.total)return toast('El efectivo recibido es menor al total');
+  const order={
+    customer_name:$('#posCustomer').value.trim()||'Consumidor final',
+    customer_phone:$('#posPhone').value.trim(),
+    customer_address:'',
+    order_type:$('#posOrderType').value,
+    payment_method:payment,
+    notes:$('#posNotes').value.trim(),
+    subtotal:totals.subtotal,
+    delivery_cost:0,
+    total:totals.total,
+    status:'pending'
+  };
+  const chargeBtn=$('#posCharge');
+  chargeBtn.disabled=true;
+  chargeBtn.textContent='Procesando...';
+  const {data,error}=await db.from('orders').insert(order).select().single();
+  if(error){
+    chargeBtn.disabled=false;chargeBtn.textContent='Cobrar y enviar a cocina';
+    return toast('No se pudo registrar la venta: '+error.message);
+  }
+  const items=posCart.map(item=>{
+    const p=products.find(x=>String(x.id)===String(item.id));
+    return{order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:item.qty,subtotal:Number(p.price)*item.qty};
+  });
+  const {error:itemError}=await db.from('order_items').insert(items);
+  chargeBtn.disabled=false;chargeBtn.textContent='Cobrar y enviar a cocina';
+  if(itemError)return toast('La venta se creó, pero fallaron los detalles: '+itemError.message);
+  lastReceiptOrder={order:data,items,received};
+  $('#receiptContent').innerHTML=buildReceipt(data,items,received);
+  $('#receiptModal').classList.remove('hidden');
+  resetPosSale();
+  await loadOrders();
+  toast(`Venta #${data.order_number} enviada a cocina`);
+}
+$('#posSearch').oninput=renderPosProducts;
+$('#posCategory').onchange=renderPosProducts;
+$('#posPayment').onchange=updatePosChange;
+$('#posReceived').oninput=updatePosChange;
+$('#posClear').onclick=()=>{if(!posCart.length||confirm('¿Vaciar la venta actual?'))resetPosSale()};
+$('#posCharge').onclick=completePosSale;
+$('#printReceipt').onclick=()=>window.print();
+
 function fillSettings(){$('#sName').value=settings.business_name||'';$('#sWhatsapp').value=settings.whatsapp||'';$('#sDescription').value=settings.description||'';$('#sAddress').value=settings.address||'';$('#sSchedule').value=settings.schedule||'';$('#sDelivery').value=settings.delivery_cost||0;$('#sMinimum').value=settings.minimum_order||0;$('#sAccepting').checked=settings.accepting_orders!==false}
 $('#settingsForm').onsubmit=async e=>{e.preventDefault();const row={id:1,business_name:$('#sName').value,whatsapp:$('#sWhatsapp').value,description:$('#sDescription').value,address:$('#sAddress').value,schedule:$('#sSchedule').value,delivery_cost:Number($('#sDelivery').value||0),minimum_order:Number($('#sMinimum').value||0),accepting_orders:$('#sAccepting').checked};const {error}=await db.from('business_settings').upsert(row);if(error)return toast(error.message);settings=row;applySettings();toast('Configuración guardada en la nube')};
 init();

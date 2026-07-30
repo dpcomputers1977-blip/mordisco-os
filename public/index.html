@@ -36,7 +36,7 @@
 </main>
 
 <section id="adminView" class="hidden adminShell">
- <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard">Resumen</button><button data-tab="products" class="active">Productos</button><button data-tab="categories">Categorías</button><button data-tab="orders">Pedidos</button><button data-tab="kitchen">Cocina</button><button data-tab="settings">Negocio</button><button id="logoutBtn">Cerrar sesión</button><button id="backToStore">Ver página</button></aside>
+ <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard">Resumen</button><button data-tab="products" class="active">Productos</button><button data-tab="categories">Categorías</button><button data-tab="orders">Pedidos</button><button data-tab="kitchen">Cocina</button><button data-tab="pos">POS / Caja</button><button data-tab="settings">Negocio</button><button id="logoutBtn">Cerrar sesión</button><button id="backToStore">Ver página</button></aside>
  <div class="adminContent">
    <div class="adminTop"><div><span class="eyebrow">MORDISCO OS CLOUD</span><h1 id="adminTitle">Productos</h1></div><span class="cloudStatus">● Conectado a Supabase</span></div>
    <section id="tab-dashboard" class="tab hidden">
@@ -112,6 +112,78 @@
       </div>
     </section>
 
+
+   <section id="tab-pos" class="tab hidden">
+      <div class="posHeader">
+        <div>
+          <h2>Punto de venta</h2>
+          <p>Registra ventas de mostrador y envíalas directamente a cocina.</p>
+        </div>
+        <div class="posHeaderStats">
+          <span>Venta actual</span>
+          <strong id="posHeaderTotal">$0.00</strong>
+        </div>
+      </div>
+
+      <div class="posLayout">
+        <section class="posCatalog panel">
+          <div class="posCatalogTop">
+            <input id="posSearch" placeholder="Buscar producto...">
+            <select id="posCategory"><option value="all">Todas las categorías</option></select>
+          </div>
+          <div id="posProducts" class="posProductGrid"></div>
+        </section>
+
+        <aside class="posTicket panel">
+          <div class="posTicketTitle">
+            <div><span class="eyebrow">ORDEN DE MOSTRADOR</span><h3>Nueva venta</h3></div>
+            <button class="danger posClearBtn" id="posClear">Vaciar</button>
+          </div>
+
+          <div id="posCart" class="posCart"></div>
+
+          <div class="posTotals">
+            <div><span>Subtotal</span><b id="posSubtotal">$0.00</b></div>
+            <div><span>Total</span><strong id="posTotal">$0.00</strong></div>
+          </div>
+
+          <div class="posForm">
+            <label>Cliente
+              <input id="posCustomer" placeholder="Consumidor final">
+            </label>
+            <label>Teléfono
+              <input id="posPhone" placeholder="Opcional">
+            </label>
+            <label>Tipo de pedido
+              <select id="posOrderType">
+                <option value="local">En el local</option>
+                <option value="pickup">Para llevar</option>
+              </select>
+            </label>
+            <label>Método de pago
+              <select id="posPayment">
+                <option value="cash">Efectivo</option>
+                <option value="card">Tarjeta</option>
+                <option value="transfer">Transferencia</option>
+              </select>
+            </label>
+            <label id="posReceivedWrap">Recibido
+              <input id="posReceived" type="number" min="0" step="0.01" value="0">
+            </label>
+            <div class="posChange">
+              <span>Cambio</span>
+              <strong id="posChange">$0.00</strong>
+            </div>
+            <label class="wide">Notas
+              <textarea id="posNotes" placeholder="Sin cebolla, extra salsa, etc."></textarea>
+            </label>
+          </div>
+
+          <button class="primary posChargeBtn" id="posCharge">Cobrar y enviar a cocina</button>
+        </aside>
+      </div>
+    </section>
+
    <section id="tab-settings" class="tab hidden"><form id="settingsForm" class="panel formGrid"><label>Nombre<input id="sName"></label><label>WhatsApp<input id="sWhatsapp" placeholder="593999999999"></label><label class="wide">Descripción<textarea id="sDescription"></textarea></label><label>Dirección<input id="sAddress"></label><label>Horario<input id="sSchedule"></label><label>Costo delivery<input id="sDelivery" type="number" min="0" step="0.01"></label><label>Pedido mínimo<input id="sMinimum" type="number" min="0" step="0.01"></label><label class="check"><input id="sAccepting" type="checkbox"> Recibir pedidos</label><div class="wide"><button class="primary">Guardar cambios</button></div></form></section>
  </div>
 </section>
@@ -119,6 +191,18 @@
 <div id="loginModal" class="modal hidden"><div class="modalCard loginCard"><button class="close" data-close="loginModal">×</button><img src="media/logo.png" alt="Mordisco"><h2>Administración</h2><p>Ingresa con el correo creado en Supabase.</p><form id="loginForm"><input id="loginEmail" type="email" placeholder="Correo" required><input id="loginPassword" type="password" placeholder="Contraseña" required><button class="primary">Ingresar</button></form><small id="loginMessage"></small></div></div>
 
 <div id="cartDrawer" class="drawer"><div class="drawerHead"><h2>Tu pedido</h2><button id="closeCart">×</button></div><div id="cartItems"></div><div class="totals"><p><span>Subtotal</span><b id="subtotal">$0.00</b></p><p><span>Delivery</span><b id="deliveryTotal">$0.00</b></p><p class="grand"><span>Total</span><b id="grandTotal">$0.00</b></p></div><form id="orderForm"><input id="customerName" placeholder="Nombre" required><input id="customerPhone" placeholder="Teléfono" required><select id="orderType"><option value="delivery">Delivery</option><option value="pickup">Retiro</option><option value="local">En el local</option></select><input id="customerAddress" placeholder="Dirección de entrega"><select id="paymentMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option></select><textarea id="orderNotes" placeholder="Notas del pedido"></textarea><button class="primary">Confirmar pedido</button></form></div>
+
+<div id="receiptModal" class="modal hidden">
+  <div class="modalCard receiptModalCard">
+    <button class="close" data-close="receiptModal">×</button>
+    <div id="receiptContent" class="receiptPaper"></div>
+    <div class="receiptActions">
+      <button class="dark" id="printReceipt">Imprimir comprobante</button>
+      <button class="primary" data-close="receiptModal">Nueva venta</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 <script src="app.js"></script>
 </body></html>
