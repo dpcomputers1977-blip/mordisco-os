@@ -142,7 +142,7 @@ $('#logoutBtn').onclick=async()=>{
   await db.auth.signOut();
   location.href='/';
 };
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',shifts:'Turnos',staff:'Personal',finance:'Contabilidad',customers:'Clientes',promotions:'Promociones',pages:'Páginas',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff'){
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',shifts:'Turnos',staff:'Personal',finance:'Contabilidad',customers:'Clientes',promotions:'Promociones',pages:'Páginas',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart();await loadOrders();renderPosPendingOrders()}if(tab==='inventory')await loadInventoryData();if(tab==='staff'){
     if($('#staffSearch'))$('#staffSearch').value='';
     if($('#staffRoleFilter'))$('#staffRoleFilter').value='all';
     await loadStaff();
@@ -193,6 +193,58 @@ function resetCategory(){$('#categoryForm').reset();$('#cId').value='';$('#cSort
 $('#categoryForm').onsubmit=async e=>{e.preventDefault();const id=$('#cId').value,row={name:$('#cName').value.trim(),sort_order:Number($('#cSort').value||0),active:$('#cActive').checked};const {error}=await(id?db.from('categories').update(row).eq('id',id):db.from('categories').insert(row));if(error)return toast(error.message);resetCategory();await loadCategories();renderAll();toast('Categoría guardada')};
 function renderAdminCategories(){$('#adminCategories').innerHTML=categories.map(c=>`<article class="adminRow"><div></div><div><b>${esc(c.name)}</b><small>Orden ${c.sort_order} · ${c.active?'Activa':'Oculta'}</small></div><button data-edit-cat="${c.id}">Editar</button><button class="danger" data-delete-cat="${c.id}">Eliminar</button></article>`).join('');$$('[data-edit-cat]').forEach(b=>b.onclick=()=>{const c=categories.find(x=>x.id===b.dataset.editCat);$('#cId').value=c.id;$('#cName').value=c.name;$('#cSort').value=c.sort_order;$('#cActive').checked=c.active});$$('[data-delete-cat]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Eliminar categoría? Los productos quedarán sin categoría.'))return;const {error}=await db.from('categories').delete().eq('id',b.dataset.deleteCat);if(error)return toast(error.message);await loadCategories();await loadProducts();renderAll()})}
 
+
+
+function renderPosPendingOrders(){
+  if(!$('#posPendingOrders'))return;
+
+  const pending=orders
+    .filter(o=>(o.payment_status||'unpaid')!=='paid'&&o.status!=='cancelled')
+    .sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+
+  if($('#posPendingCount'))$('#posPendingCount').textContent=pending.length;
+
+  $('#posPendingOrders').innerHTML=pending.length?pending.map(o=>`
+    <article class="posPendingCard">
+      <div class="posPendingMain">
+        <div class="posPendingNumber">
+          <small>PEDIDO</small>
+          <strong>#${o.order_number}</strong>
+        </div>
+        <div class="posPendingInfo">
+          <h4>${esc(o.customer_name||'Consumidor final')}</h4>
+          <p>${o.order_items?.map(i=>`${i.quantity}× ${esc(i.product_name)}`).join(', ')||'Sin detalle'}</p>
+          <small>
+            ${o.restaurant_tables?.name?`🍽️ ${esc(o.restaurant_tables.name)} · `:''}
+            ${orderTypeLabel(o.order_type)} ·
+            ${new Date(o.created_at).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}
+          </small>
+        </div>
+      </div>
+      <div class="posPendingPayment">
+        <span>Pendiente</span>
+        <strong>${money(o.total)}</strong>
+        <button class="primary posPayNowBtn" data-pos-pay="${o.id}">Cobrar ahora</button>
+      </div>
+    </article>
+  `).join(''):`<div class="posPendingEmpty">
+    <span>✓</span>
+    <div><b>No hay pedidos pendientes</b><p>Las órdenes enviadas a cocina aparecerán aquí para cobrarlas.</p></div>
+  </div>`;
+
+  $$('[data-pos-pay]').forEach(button=>{
+    button.onclick=()=>openChargeOrder(button.dataset.posPay);
+  });
+}
+
+if($('#refreshPosPending'))$('#refreshPosPending').onclick=async()=>{
+  const button=$('#refreshPosPending');
+  button.disabled=true;
+  button.textContent='Actualizando...';
+  await loadOrders();
+  button.disabled=false;
+  button.textContent='Actualizar';
+};
 
 function openChargeOrder(orderId){
   const order=orders.find(o=>String(o.id)===String(orderId));
@@ -256,6 +308,7 @@ async function confirmChargeOrder(){
   $('#receiptModal').classList.remove('hidden');
 
   await Promise.all([loadOrders(),loadFinance()]);
+  renderPosPendingOrders();
   if(typeof loadShifts==='function')await loadShifts();
   toast(`Pedido #${order.order_number} cobrado correctamente`);
 }
@@ -324,6 +377,7 @@ async function loadOrders(){
   renderOrders();
   renderMetrics();
   renderKitchen();
+  renderPosPendingOrders();
 }
 const statusLabels={pending:'Pendiente',confirmed:'Confirmado',preparing:'Preparando',ready:'Listo',delivered:'Entregado',cancelled:'Cancelado'};
 function getFilteredOrders(){return orderStatusFilter==='all'?orders:orders.filter(o=>o.status===orderStatusFilter)}
@@ -614,7 +668,7 @@ async function completePosSale(){
 
   resetPosSale();
   await loadOrders();
-  toast(`Pedido #${data.order_number} enviado a cocina. Cobro pendiente.`);
+  renderPosPendingOrders();toast(`Pedido #${data.order_number} enviado a cocina. Ya aparece abajo para cobrar después.`);
 }
 $('#posSearch').oninput=renderPosProducts;
 $('#posCategory').onchange=renderPosProducts;

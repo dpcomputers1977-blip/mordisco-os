@@ -829,3 +829,176 @@ body.employeeMode .deleteSaleBtn{
   background:#f3eee5;
   border-radius:10px;
 }
+
+/* V13.13 — COBRO DIRECTO DESDE POS / CAJA */
+.posPendingPanel{
+  margin-top:18px;
+  padding:20px;
+}
+.posPendingHeader{
+  align-items:center;
+  margin-bottom:14px;
+}
+.posPendingHeader h3{
+  margin:3px 0;
+  font-size:1.35rem;
+}
+.posPendingHeader p{
+  margin:0;
+  color:var(--muted);
+  font-size:.84rem;
+}
+.posPendingActions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.pendingCount{
+  padding:9px 12px;
+  border-radius:999px;
+  background:#fff1bd;
+  color:#6d5200;
+  font-size:.78rem;
+  font-weight:800;
+}
+.posPendingOrders{
+  display:grid;
+  gap:10px;
+}
+.posPendingCard{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:14px;
+  border:1px solid #e5ddd1;
+  border-radius:15px;
+  background:#fff;
+}
+.posPendingMain{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-width:0;
+}
+.posPendingNumber{
+  flex:0 0 70px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  min-height:67px;
+  border-radius:12px;
+  background:#171512;
+  color:#fff;
+}
+.posPendingNumber small{
+  color:#ffc400;
+  font-size:.58rem;
+  font-weight:900;
+  letter-spacing:1px;
+}
+.posPendingNumber strong{
+  font-size:1.15rem;
+}
+.posPendingInfo{
+  min-width:0;
+}
+.posPendingInfo h4{
+  margin:0 0 4px;
+  font-size:1rem;
+}
+.posPendingInfo p{
+  margin:0 0 5px;
+  color:#554e46;
+  font-size:.83rem;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  max-width:650px;
+}
+.posPendingInfo small{
+  color:var(--muted);
+}
+.posPendingPayment{
+  flex:0 0 auto;
+  display:grid;
+  grid-template-columns:auto auto auto;
+  align-items:center;
+  gap:12px;
+}
+.posPendingPayment>span{
+  padding:5px 9px;
+  border-radius:999px;
+  background:#fff0c7;
+  color:#846000;
+  font-size:.7rem;
+  font-weight:900;
+}
+.posPendingPayment>strong{
+  font-size:1.2rem;
+}
+.posPayNowBtn{
+  min-width:125px;
+}
+.posPendingEmpty{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  min-height:120px;
+  color:#4f6654;
+  background:#eff8f1;
+  border-radius:14px;
+  text-align:left;
+}
+.posPendingEmpty>span{
+  display:grid;
+  place-items:center;
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  background:#24894a;
+  color:#fff;
+  font-size:1.25rem;
+}
+.posPendingEmpty p{
+  margin:4px 0 0;
+  color:#6b776e;
+  font-size:.8rem;
+}
+@media(max-width:850px){
+  .posPendingCard{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .posPendingPayment{
+    width:100%;
+    grid-template-columns:1fr auto;
+  }
+  .posPendingPayment>span{
+    display:none;
+  }
+  .posPayNowBtn{
+    min-width:140px;
+  }
+}
+@media(max-width:520px){
+  .posPendingHeader,
+  .posPendingActions{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .posPendingMain{
+    align-items:flex-start;
+  }
+  .posPendingInfo p{
+    white-space:normal;
+  }
+  .posPendingPayment{
+    grid-template-columns:1fr;
+  }
+  .posPayNowBtn{
+    width:100%;
+  }
+}

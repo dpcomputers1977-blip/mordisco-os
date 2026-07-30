@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#11100e">
 <title>Mordisco Fast Food</title>
-<link rel="stylesheet" href="styles.css?v=13.12.0">
+<link rel="stylesheet" href="styles.css?v=13.13.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -188,6 +188,23 @@
           <button class="primary posChargeBtn" id="posCharge">Enviar a cocina</button>
         </aside>
       </div>
+
+      <section class="panel posPendingPanel">
+        <div class="panelTitle posPendingHeader">
+          <div>
+            <span class="eyebrow">CAJA DEL LOCAL</span>
+            <h3>Pedidos pendientes de cobro</h3>
+            <p>Selecciona una orden cuando el cliente esté listo para pagar.</p>
+          </div>
+          <div class="posPendingActions">
+            <span class="pendingCount"><b id="posPendingCount">0</b> pendientes</span>
+            <button class="dark" id="refreshPosPending">Actualizar</button>
+          </div>
+        </div>
+        <div id="posPendingOrders" class="posPendingOrders">
+          <div class="notice">Cargando pedidos pendientes...</div>
+        </div>
+      </section>
     </section>
 
 
@@ -633,5 +650,5 @@
   </div>
 </div>
 <div id="toast" class="toast"></div>
-<script src="app.js?v=13.12.0"></script>
+<script src="app.js?v=13.13.0"></script>
 </body></html>
