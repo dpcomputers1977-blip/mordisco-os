@@ -324,3 +324,32 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-s
   .inventoryTabs button{flex:1}
   .metrics{grid-template-columns:1fr 1fr}
 }
+
+/* PERSONAL */
+.staffHeader{
+  display:flex;justify-content:space-between;align-items:center;gap:18px;
+  background:linear-gradient(135deg,#171512,#2a241b);
+  color:#fff;padding:22px;border-radius:22px;box-shadow:var(--shadow);margin-bottom:17px
+}
+.staffHeader h2{margin:0 0 5px;font-size:1.8rem}.staffHeader p{margin:0;color:#cfc7bb}
+.staffStats{display:grid;grid-template-columns:repeat(3,minmax(105px,1fr));gap:8px}
+.staffStats div{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.11);border-radius:13px;padding:10px 13px}
+.staffStats span{display:block;font-size:.76rem;opacity:.72}.staffStats strong{display:block;color:var(--gold);font-size:1.3rem}
+.staffLayout{display:grid;grid-template-columns:minmax(320px,.72fr) minmax(0,1.35fr);gap:18px;align-items:start}
+.staffForm{position:sticky;top:18px;border-top:5px solid var(--gold)}
+.staffListPanel{min-height:520px}.staffFilters{display:flex;gap:8px}.staffFilters input{min-width:210px}
+.staffList{display:grid;gap:10px}
+.staffCard{
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:14px;align-items:center;
+  padding:14px;border:1px solid #e6ddd0;border-radius:14px;background:#fff;
+  box-shadow:0 4px 14px rgba(28,21,12,.04)
+}
+.staffIdentity{display:flex;align-items:center;gap:12px}
+.staffAvatar{width:46px;height:46px;border-radius:13px;background:#f2ede4;display:grid;place-items:center;font-size:1.35rem}
+.staffIdentity h4{margin:0 0 3px}.staffIdentity p{margin:0;color:var(--muted);font-size:.84rem}
+.staffRoleBadge{padding:7px 10px;border-radius:999px;font-weight:900;font-size:.8rem;background:#f0ebe2}
+.staffRoleBadge.waiter{background:#e9f0ff;color:#2351a3}.staffRoleBadge.cashier{background:#e8f7ed;color:#176b39}.staffRoleBadge.kitchen{background:#fff0dd;color:#a55500}
+.staffInactive{opacity:.58}.staffActions{display:flex;gap:6px}
+.staffActions button{padding:8px 10px;font-size:.8rem}
+@media(max-width:1000px){.staffLayout{grid-template-columns:1fr}.staffForm{position:static}}
+@media(max-width:700px){.staffHeader{align-items:flex-start;flex-direction:column}.staffStats{width:100%;grid-template-columns:1fr}.staffFilters{width:100%;flex-direction:column}.staffFilters input{min-width:0}.staffCard{grid-template-columns:1fr}.staffActions{grid-column:1/-1}}

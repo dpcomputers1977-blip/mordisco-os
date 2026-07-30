@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#11100e">
 <title>Mordisco Fast Food</title>
-<link rel="stylesheet" href="styles.css?v=6.0.0">
+<link rel="stylesheet" href="styles.css?v=7.0.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -36,7 +36,7 @@
 </main>
 
 <section id="adminView" class="hidden adminShell">
- <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard"><span>▦</span> Resumen</button><button data-tab="products" class="active"><span>🍔</span> Productos</button><button data-tab="categories"><span>▤</span> Categorías</button><button data-tab="orders"><span>◫</span> Pedidos</button><button data-tab="kitchen"><span>♨</span> Cocina</button><button data-tab="pos"><span>▣</span> POS / Caja</button><button data-tab="inventory"><span>◇</span> Inventario</button><button data-tab="settings"><span>⚙</span> Negocio</button><button id="logoutBtn"><span>↪</span> Cerrar sesión</button><button id="backToStore"><span>↗</span> Ver página</button></aside>
+ <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard"><span>▦</span> Resumen</button><button data-tab="products" class="active"><span>🍔</span> Productos</button><button data-tab="categories"><span>▤</span> Categorías</button><button data-tab="orders"><span>◫</span> Pedidos</button><button data-tab="kitchen"><span>♨</span> Cocina</button><button data-tab="pos"><span>▣</span> POS / Caja</button><button data-tab="inventory"><span>◇</span> Inventario</button><button data-tab="staff"><span>👥</span> Personal</button><button data-tab="settings"><span>⚙</span> Negocio</button><button id="logoutBtn"><span>↪</span> Cerrar sesión</button><button id="backToStore"><span>↗</span> Ver página</button></aside>
  <div class="adminContent">
    <div class="adminTop"><div><span class="eyebrow">MORDISCO OS CLOUD</span><h1 id="adminTitle">Productos</h1></div><span class="cloudStatus">● Conectado a Supabase</span></div>
    <section id="tab-dashboard" class="tab hidden">
@@ -153,6 +153,12 @@
             </label>
             <label>Teléfono
               <input id="posPhone" placeholder="Opcional">
+            </label>
+            <label>Cajero
+              <select id="posCashier"><option value="">Seleccionar cajero</option></select>
+            </label>
+            <label>Mesero
+              <select id="posWaiter"><option value="">Sin mesero</option></select>
             </label>
             <label>Tipo de pedido
               <select id="posOrderType">
@@ -292,6 +298,71 @@
       </div>
     </section>
 
+
+   <section id="tab-staff" class="tab hidden">
+      <div class="staffHeader">
+        <div>
+          <h2>Personal</h2>
+          <p>Crea meseros, cajeros y personal de cocina para organizar las operaciones.</p>
+        </div>
+        <div class="staffStats">
+          <div><span>Activos</span><strong id="staffActiveCount">0</strong></div>
+          <div><span>Meseros</span><strong id="staffWaiterCount">0</strong></div>
+          <div><span>Cajeros</span><strong id="staffCashierCount">0</strong></div>
+        </div>
+      </div>
+
+      <div class="staffLayout">
+        <form id="staffForm" class="panel formGrid staffForm">
+          <input id="staffId" type="hidden">
+          <h3 class="wide">Registrar empleado</h3>
+          <label class="wide">Nombre completo
+            <input id="staffName" required placeholder="Ej. Carlos Mendoza">
+          </label>
+          <label>Rol
+            <select id="staffRole">
+              <option value="waiter">Mesero</option>
+              <option value="cashier">Cajero</option>
+              <option value="kitchen">Cocina</option>
+            </select>
+          </label>
+          <label>Teléfono
+            <input id="staffPhone" placeholder="Opcional">
+          </label>
+          <label class="wide">PIN de acceso
+            <input id="staffPin" type="password" inputmode="numeric" maxlength="6" placeholder="4 a 6 números">
+          </label>
+          <label class="check wide">
+            <input id="staffActive" type="checkbox" checked> Empleado activo
+          </label>
+          <div class="wide formActions">
+            <button class="primary">Guardar empleado</button>
+            <button type="button" class="dark" id="clearStaff">Limpiar</button>
+          </div>
+          <p class="wide helperText">El PIN se guarda cifrado en Supabase. Al editar, déjalo vacío para conservar el PIN actual.</p>
+        </form>
+
+        <section class="panel staffListPanel">
+          <div class="panelToolbar">
+            <div>
+              <h3>Empleados registrados</h3>
+              <small>Administra roles y disponibilidad.</small>
+            </div>
+            <div class="staffFilters">
+              <input id="staffSearch" placeholder="Buscar empleado...">
+              <select id="staffRoleFilter">
+                <option value="all">Todos los roles</option>
+                <option value="waiter">Meseros</option>
+                <option value="cashier">Cajeros</option>
+                <option value="kitchen">Cocina</option>
+              </select>
+            </div>
+          </div>
+          <div id="staffList" class="staffList"></div>
+        </section>
+      </div>
+    </section>
+
    <section id="tab-settings" class="tab hidden"><form id="settingsForm" class="panel formGrid"><label>Nombre<input id="sName"></label><label>WhatsApp<input id="sWhatsapp" placeholder="593999999999"></label><label class="wide">Descripción<textarea id="sDescription"></textarea></label><label>Dirección<input id="sAddress"></label><label>Horario<input id="sSchedule"></label><label>Costo delivery<input id="sDelivery" type="number" min="0" step="0.01"></label><label>Pedido mínimo<input id="sMinimum" type="number" min="0" step="0.01"></label><label class="check"><input id="sAccepting" type="checkbox"> Recibir pedidos</label><div class="wide"><button class="primary">Guardar cambios</button></div></form></section>
  </div>
 </section>
@@ -312,5 +383,5 @@
 </div>
 
 <div id="toast" class="toast"></div>
-<script src="app.js?v=6.0.0"></script>
+<script src="app.js?v=7.0.0"></script>
 </body></html>

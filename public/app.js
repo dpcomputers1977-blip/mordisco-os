@@ -2,7 +2,7 @@
 const SUPABASE_URL='https://nmmjthqflxwucpmmmrks.supabase.co';
 const SUPABASE_KEY='sb_publishable_izCztp4wZ0MzKOHjT2KGYA_ot_3pgb0';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
+let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],staffMembers=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
@@ -12,7 +12,7 @@ async function loadCategories(){const {data,error}=await db.from('categories').s
 async function loadProducts(){const {data,error}=await db.from('products').select('*,categories(name)').order('sort_order');$('#loadingProducts').classList.add('hidden');if(error)return toast('Error cargando productos');products=data||[]}
 async function loadSettings(){const {data}=await db.from('business_settings').select('*').eq('id',1).maybeSingle();settings=data||{};applySettings()}
 function applySettings(){$('#businessDescription').textContent=settings.description||'El mejor sabor para compartir.';$('#businessAddress').textContent=settings.address||'Dirección por configurar';$('#businessSchedule').textContent=settings.schedule||'Horario por configurar'}
-function renderAll(){renderFilters();renderProducts();renderCart();renderAdminProducts();renderAdminCategories();fillCategorySelect();fillSettings();fillPosCategories();renderPosProducts();renderPosCart()}
+function renderAll(){renderFilters();renderProducts();renderCart();renderAdminProducts();renderAdminCategories();fillCategorySelect();fillSettings();fillPosCategories();renderPosProducts();renderPosCart();fillPosStaff()}
 function renderFilters(){const names=['Todos',...categories.filter(c=>c.active).map(c=>c.name)];$('#categoryFilters').innerHTML=names.map(n=>`<button class="${n===selectedCategory?'active':''}" data-cat="${esc(n)}">${esc(n)}</button>`).join('');$$('[data-cat]').forEach(b=>b.onclick=()=>{selectedCategory=b.dataset.cat;renderFilters();renderProducts()})}
 function filteredProducts(){const q=$('#searchInput').value.toLowerCase();return products.filter(p=>p.active&&(selectedCategory==='Todos'||p.categories?.name===selectedCategory)&&(`${p.name} ${p.description||''}`).toLowerCase().includes(q))}
 function renderProducts(){const list=filteredProducts();$('#productGrid').innerHTML=list.length?list.map(p=>`<article class="productCard">${p.featured?'<span class="featured">Favorito</span>':''}<div class="productImage">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="noImage">Sin imagen</div>'}</div><div class="productBody"><small>${esc(p.categories?.name||'Sin categoría')}</small><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="productFoot"><strong>${money(p.price)}</strong><button data-add="${p.id}">+ Agregar</button></div></div></article>`).join(''):'<div class="notice">No hay productos disponibles.</div>';$$('[data-add]').forEach(b=>b.onclick=()=>addCart(b.dataset.add))}
@@ -28,11 +28,11 @@ ${items.map(i=>`${i.quantity} x ${i.product_name} — ${money(i.subtotal)}`).joi
 TOTAL: ${money(t.total)}`;cart=[];renderCart();$('#orderForm').reset();toast('Pedido guardado en la nube');if(settings.whatsapp)window.open(`https://wa.me/${String(settings.whatsapp).replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank')};
 $('#adminBtn').onclick=()=>$('#loginModal').classList.remove('hidden');$$('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).classList.add('hidden'));
 $('#loginForm').onsubmit=async e=>{e.preventDefault();$('#loginMessage').textContent='Ingresando…';const {error}=await db.auth.signInWithPassword({email:$('#loginEmail').value,password:$('#loginPassword').value});if(error){$('#loginMessage').textContent='No se pudo ingresar: '+error.message;return}await verifyAdmin(true)};
-async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.getUser();if(!user)return;const {data,error}=await db.from('admin_users').select('active').eq('user_id',user.id).maybeSingle();if(error||!data?.active){await db.auth.signOut();if(showError)$('#loginMessage').textContent='Este usuario no está autorizado como administrador.';return}$('#loginModal').classList.add('hidden');showAdmin();await Promise.all([loadOrders(),loadProducts(),loadCategories(),loadSettings()]);renderAll();subscribeOrdersRealtime()}
+async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.getUser();if(!user)return;const {data,error}=await db.from('admin_users').select('active').eq('user_id',user.id).maybeSingle();if(error||!data?.active){await db.auth.signOut();if(showError)$('#loginMessage').textContent='Este usuario no está autorizado como administrador.';return}$('#loginModal').classList.add('hidden');showAdmin();await Promise.all([loadOrders(),loadProducts(),loadCategories(),loadSettings()]);renderAll();subscribeOrdersRealtime();loadStaff()}
 function showAdmin(){$('#publicView').classList.add('hidden');$('.topbar').classList.add('hidden');$('#adminView').classList.remove('hidden')}
 function showStore(){$('#adminView').classList.add('hidden');$('#publicView').classList.remove('hidden');$('.topbar').classList.remove('hidden')}
 $('#backToStore').onclick=showStore;$('#logoutBtn').onclick=async()=>{await db.auth.signOut();showStore();toast('Sesión cerrada')};
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData()});
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',staff:'Personal',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff')await loadStaff()});
 function fillCategorySelect(){$('#pCategory').innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
 function resetProduct(){$('#productForm').reset();$('#pId').value='';$('#pActive').checked=true;$('#pSort').value=0;editingImage='';updatePreview('')}
 function updatePreview(src){$('#pPreview').src=src||'';$('#pPreview').classList.toggle('hidden',!src);$('#pNoImage').classList.toggle('hidden',!!src);$('#removeProductImage').classList.toggle('hidden',!src)}
@@ -267,7 +267,7 @@ function resetPosSale(){
   posCart=[];
   $('#posCustomer').value='';
   $('#posPhone').value='';
-  $('#posOrderType').value='local';
+  $('#posOrderType').value='local';$('#posCashier').value='';$('#posWaiter').value='';
   $('#posPayment').value='cash';
   $('#posReceived').value='0';
   $('#posNotes').value='';
@@ -310,6 +310,8 @@ async function completePosSale(){
     order_type:$('#posOrderType').value,
     payment_method:payment,
     notes:$('#posNotes').value.trim(),
+    cashier_id:$('#posCashier').value||null,
+    waiter_id:$('#posWaiter').value||null,
     subtotal:totals.subtotal,
     delivery_cost:0,
     total:totals.total,
@@ -484,6 +486,69 @@ $$('[data-inventory-view]').forEach(b=>b.onclick=()=>{
   $$('.inventoryView').forEach(x=>x.classList.add('hidden'));
   $('#inventoryView'+b.dataset.inventoryView.charAt(0).toUpperCase()+b.dataset.inventoryView.slice(1)).classList.remove('hidden');
 });
+
+
+function staffRoleLabel(role){return({waiter:'Mesero',cashier:'Cajero',kitchen:'Cocina'})[role]||role}
+function staffRoleIcon(role){return({waiter:'🧑‍🍽️',cashier:'💵',kitchen:'👨‍🍳'})[role]||'👤'}
+async function loadStaff(){
+  const {data,error}=await db.from('staff').select('id,name,role,phone,active,created_at,updated_at').order('name');
+  if(error)return toast('Primero ejecuta el SQL de Personal en Supabase');
+  staffMembers=data||[];
+  renderStaff();
+  fillPosStaff();
+}
+function renderStaff(){
+  if(!$('#staffList'))return;
+  const q=($('#staffSearch').value||'').trim().toLowerCase();
+  const role=$('#staffRoleFilter').value||'all';
+  const list=staffMembers.filter(s=>(role==='all'||s.role===role)&&(`${s.name} ${s.phone||''}`).toLowerCase().includes(q));
+  const active=staffMembers.filter(s=>s.active);
+  $('#staffActiveCount').textContent=active.length;
+  $('#staffWaiterCount').textContent=active.filter(s=>s.role==='waiter').length;
+  $('#staffCashierCount').textContent=active.filter(s=>s.role==='cashier').length;
+  $('#staffList').innerHTML=list.length?list.map(s=>`<article class="staffCard ${s.active?'':'staffInactive'}">
+    <div class="staffIdentity"><div class="staffAvatar">${staffRoleIcon(s.role)}</div><div><h4>${esc(s.name)}</h4><p>${esc(s.phone||'Sin teléfono')} · ${s.active?'Activo':'Inactivo'}</p></div></div>
+    <span class="staffRoleBadge ${s.role}">${staffRoleLabel(s.role)}</span>
+    <div class="staffActions"><button class="dark" data-edit-staff="${s.id}">Editar</button><button class="${s.active?'danger':'success'}" data-toggle-staff="${s.id}" data-active="${s.active}">${s.active?'Desactivar':'Activar'}</button></div>
+  </article>`).join(''):'<div class="inventoryEmpty">No hay empleados registrados.</div>';
+  $$('[data-edit-staff]').forEach(b=>b.onclick=()=>editStaff(b.dataset.editStaff));
+  $$('[data-toggle-staff]').forEach(b=>b.onclick=()=>toggleStaff(b.dataset.toggleStaff,b.dataset.active==='true'));
+}
+function fillPosStaff(){
+  if(!$('#posCashier')||!$('#posWaiter'))return;
+  const cashierCurrent=$('#posCashier').value;
+  const waiterCurrent=$('#posWaiter').value;
+  $('#posCashier').innerHTML='<option value="">Seleccionar cajero</option>'+staffMembers.filter(s=>s.active&&s.role==='cashier').map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  $('#posWaiter').innerHTML='<option value="">Sin mesero</option>'+staffMembers.filter(s=>s.active&&s.role==='waiter').map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  $('#posCashier').value=[...$('#posCashier').options].some(o=>o.value===cashierCurrent)?cashierCurrent:'';
+  $('#posWaiter').value=[...$('#posWaiter').options].some(o=>o.value===waiterCurrent)?waiterCurrent:'';
+}
+function resetStaffForm(){
+  $('#staffForm').reset();$('#staffId').value='';$('#staffActive').checked=true;$('#staffPin').value='';
+}
+function editStaff(id){
+  const s=staffMembers.find(x=>String(x.id)===String(id));if(!s)return;
+  $('#staffId').value=s.id;$('#staffName').value=s.name;$('#staffRole').value=s.role;$('#staffPhone').value=s.phone||'';$('#staffActive').checked=s.active;$('#staffPin').value='';$('#staffName').focus();
+}
+async function toggleStaff(id,isActive){
+  const {error}=await db.from('staff').update({active:!isActive,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error)return toast(error.message);
+  toast(isActive?'Empleado desactivado':'Empleado activado');await loadStaff();
+}
+$('#staffForm').onsubmit=async e=>{
+  e.preventDefault();
+  const id=$('#staffId').value;
+  const pin=$('#staffPin').value.trim();
+  if(!id&&!/^\d{4,6}$/.test(pin))return toast('El PIN debe tener entre 4 y 6 números');
+  if(id&&pin&&!/^\d{4,6}$/.test(pin))return toast('El PIN debe tener entre 4 y 6 números');
+  const payload={staff_id:id||null,staff_name:$('#staffName').value.trim(),staff_role:$('#staffRole').value,staff_phone:$('#staffPhone').value.trim()||null,staff_pin:pin||null,staff_active:$('#staffActive').checked};
+  const {error}=await db.rpc('save_staff_member',payload);
+  if(error)return toast(error.message);
+  toast(id?'Empleado actualizado':'Empleado creado');resetStaffForm();await loadStaff();
+};
+$('#clearStaff').onclick=resetStaffForm;
+$('#staffSearch').oninput=renderStaff;
+$('#staffRoleFilter').onchange=renderStaff;
 
 function fillSettings(){$('#sName').value=settings.business_name||'';$('#sWhatsapp').value=settings.whatsapp||'';$('#sDescription').value=settings.description||'';$('#sAddress').value=settings.address||'';$('#sSchedule').value=settings.schedule||'';$('#sDelivery').value=settings.delivery_cost||0;$('#sMinimum').value=settings.minimum_order||0;$('#sAccepting').checked=settings.accepting_orders!==false}
 $('#settingsForm').onsubmit=async e=>{e.preventDefault();const row={id:1,business_name:$('#sName').value,whatsapp:$('#sWhatsapp').value,description:$('#sDescription').value,address:$('#sAddress').value,schedule:$('#sSchedule').value,delivery_cost:Number($('#sDelivery').value||0),minimum_order:Number($('#sMinimum').value||0),accepting_orders:$('#sAccepting').checked};const {error}=await db.from('business_settings').upsert(row);if(error)return toast(error.message);settings=row;applySettings();toast('Configuración guardada en la nube')};
