@@ -23,3 +23,28 @@
 .status-cancelled{background:#ffe0df;color:#8f1e16}
 .emptySmall{color:var(--muted);padding:12px 0}
 @media(max-width:900px){.dashboardGrid{grid-template-columns:1fr}.adminRow{grid-template-columns:60px 1fr}.adminRowActions{grid-column:1/-1}}
+
+.kitchenToolbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px}
+.kitchenToolbar h2{margin:0 0 4px;font-size:1.8rem}.kitchenToolbar p{margin:0;color:var(--muted)}
+.kitchenActions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.kitchenBoard{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.kitchenColumn{background:#eee8de;border-radius:18px;padding:12px;min-height:520px}
+.kitchenColumn>header{display:flex;align-items:center;gap:9px;padding:6px 5px 14px}
+.kitchenColumn>header h3{margin:0;flex:1}.kitchenColumn>header b{background:#111;color:#fff;border-radius:999px;min-width:30px;height:30px;display:grid;place-items:center}
+.statusDot{width:13px;height:13px;border-radius:50%}.pendingDot{background:#d99a00}.preparingDot{background:#e56819}.readyDot{background:#16843d}
+.kitchenCards{display:grid;gap:12px}
+.kitchenCard{background:#fff;border-radius:15px;padding:14px;box-shadow:0 8px 22px rgba(30,20,8,.08);border:2px solid transparent}
+.kitchenCard.isLate{border-color:#c62828}
+.kitchenCardHead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.kitchenCardHead h3{font-size:1.35rem;margin:0}.kitchenTimer{font-weight:950;border-radius:8px;padding:6px 8px;background:#f2ede4}
+.kitchenCustomer{font-weight:800;margin:8px 0 4px}.kitchenMeta{font-size:.86rem;color:var(--muted);margin:0 0 10px}
+.kitchenItems{list-style:none;padding:0;margin:0 0 12px;display:grid;gap:7px}
+.kitchenItems li{background:#f7f4ee;border-radius:9px;padding:9px;font-weight:800}
+.kitchenNotes{border-left:4px solid var(--gold);padding:8px 10px;background:#fff7d9;border-radius:5px;margin:9px 0}
+.kitchenCardActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kitchenCardActions button:only-child{grid-column:1/-1}
+.kitchenEmpty{padding:35px 12px;text-align:center;color:var(--muted);font-weight:800}
+.kitchenBoard:fullscreen{background:#161412;padding:18px;overflow:auto}
+.kitchenBoard:fullscreen .kitchenColumn{min-height:calc(100vh - 36px)}
+@media(max-width:1100px){.kitchenBoard{grid-template-columns:1fr}.kitchenColumn{min-height:200px}}
+@media(max-width:700px){.kitchenToolbar{align-items:flex-start;flex-direction:column}.kitchenActions{width:100%}.kitchenActions button{flex:1}}

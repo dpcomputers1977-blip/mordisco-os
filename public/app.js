@@ -2,7 +2,7 @@
 const SUPABASE_URL='https://nmmjthqflxwucpmmmrks.supabase.co';
 const SUPABASE_KEY='sb_publishable_izCztp4wZ0MzKOHjT2KGYA_ot_3pgb0';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let products=[],categories=[],settings={},orders=[],cart=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all';
+let products=[],categories=[],settings={},orders=[],cart=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
@@ -28,11 +28,11 @@ ${items.map(i=>`${i.quantity} x ${i.product_name} — ${money(i.subtotal)}`).joi
 TOTAL: ${money(t.total)}`;cart=[];renderCart();$('#orderForm').reset();toast('Pedido guardado en la nube');if(settings.whatsapp)window.open(`https://wa.me/${String(settings.whatsapp).replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank')};
 $('#adminBtn').onclick=()=>$('#loginModal').classList.remove('hidden');$$('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).classList.add('hidden'));
 $('#loginForm').onsubmit=async e=>{e.preventDefault();$('#loginMessage').textContent='Ingresando…';const {error}=await db.auth.signInWithPassword({email:$('#loginEmail').value,password:$('#loginPassword').value});if(error){$('#loginMessage').textContent='No se pudo ingresar: '+error.message;return}await verifyAdmin(true)};
-async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.getUser();if(!user)return;const {data,error}=await db.from('admin_users').select('active').eq('user_id',user.id).maybeSingle();if(error||!data?.active){await db.auth.signOut();if(showError)$('#loginMessage').textContent='Este usuario no está autorizado como administrador.';return}$('#loginModal').classList.add('hidden');showAdmin();await Promise.all([loadOrders(),loadProducts(),loadCategories(),loadSettings()]);renderAll()}
+async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.getUser();if(!user)return;const {data,error}=await db.from('admin_users').select('active').eq('user_id',user.id).maybeSingle();if(error||!data?.active){await db.auth.signOut();if(showError)$('#loginMessage').textContent='Este usuario no está autorizado como administrador.';return}$('#loginModal').classList.add('hidden');showAdmin();await Promise.all([loadOrders(),loadProducts(),loadCategories(),loadSettings()]);renderAll();subscribeOrdersRealtime()}
 function showAdmin(){$('#publicView').classList.add('hidden');$('.topbar').classList.add('hidden');$('#adminView').classList.remove('hidden')}
 function showStore(){$('#adminView').classList.add('hidden');$('#publicView').classList.remove('hidden');$('.topbar').classList.remove('hidden')}
 $('#backToStore').onclick=showStore;$('#logoutBtn').onclick=async()=>{await db.auth.signOut();showStore();toast('Sesión cerrada')};
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',settings:'Negocio'}[tab];if(tab==='orders')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}});
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock()});
 function fillCategorySelect(){$('#pCategory').innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
 function resetProduct(){$('#productForm').reset();$('#pId').value='';$('#pActive').checked=true;$('#pSort').value=0;editingImage='';updatePreview('')}
 function updatePreview(src){$('#pPreview').src=src||'';$('#pPreview').classList.toggle('hidden',!src);$('#pNoImage').classList.toggle('hidden',!!src);$('#removeProductImage').classList.toggle('hidden',!src)}
@@ -78,7 +78,7 @@ async function deleteProduct(id){if(!confirm('¿Eliminar este producto?'))return
 function resetCategory(){$('#categoryForm').reset();$('#cId').value='';$('#cSort').value=0;$('#cActive').checked=true} $('#clearCategory').onclick=resetCategory;
 $('#categoryForm').onsubmit=async e=>{e.preventDefault();const id=$('#cId').value,row={name:$('#cName').value.trim(),sort_order:Number($('#cSort').value||0),active:$('#cActive').checked};const {error}=await(id?db.from('categories').update(row).eq('id',id):db.from('categories').insert(row));if(error)return toast(error.message);resetCategory();await loadCategories();renderAll();toast('Categoría guardada')};
 function renderAdminCategories(){$('#adminCategories').innerHTML=categories.map(c=>`<article class="adminRow"><div></div><div><b>${esc(c.name)}</b><small>Orden ${c.sort_order} · ${c.active?'Activa':'Oculta'}</small></div><button data-edit-cat="${c.id}">Editar</button><button class="danger" data-delete-cat="${c.id}">Eliminar</button></article>`).join('');$$('[data-edit-cat]').forEach(b=>b.onclick=()=>{const c=categories.find(x=>x.id===b.dataset.editCat);$('#cId').value=c.id;$('#cName').value=c.name;$('#cSort').value=c.sort_order;$('#cActive').checked=c.active});$$('[data-delete-cat]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Eliminar categoría? Los productos quedarán sin categoría.'))return;const {error}=await db.from('categories').delete().eq('id',b.dataset.deleteCat);if(error)return toast(error.message);await loadCategories();await loadProducts();renderAll()})}
-async function loadOrders(){const {data,error}=await db.from('orders').select('*,order_items(*)').order('created_at',{ascending:false}).limit(100);if(error)return toast('Error cargando pedidos');orders=data||[];renderOrders();renderMetrics()}
+async function loadOrders(){const {data,error}=await db.from('orders').select('*,order_items(*)').order('created_at',{ascending:false}).limit(100);if(error)return toast('Error cargando pedidos');orders=data||[];renderOrders();renderMetrics();renderKitchen()}
 const statusLabels={pending:'Pendiente',confirmed:'Confirmado',preparing:'Preparando',ready:'Listo',delivered:'Entregado',cancelled:'Cancelado'};
 function getFilteredOrders(){return orderStatusFilter==='all'?orders:orders.filter(o=>o.status===orderStatusFilter)}
 function renderOrders(){
@@ -89,6 +89,81 @@ function renderOrders(){
     if(error)toast(error.message);else{toast('Estado actualizado');await loadOrders()}
   });
 }
+
+function elapsedLabel(createdAt){
+  const mins=Math.max(0,Math.floor((Date.now()-new Date(createdAt).getTime())/60000));
+  if(mins<60)return `${mins} min`;
+  const h=Math.floor(mins/60),m=mins%60;
+  return `${h}h ${m}m`;
+}
+function orderTypeLabel(type){return({delivery:'Delivery',pickup:'Retiro',local:'En local'})[type]||type}
+function kitchenCard(o){
+  const mins=Math.max(0,Math.floor((Date.now()-new Date(o.created_at).getTime())/60000));
+  const late=mins>=20&&o.status!=='ready';
+  let actions='';
+  if(o.status==='pending'||o.status==='confirmed'){
+    actions=`<button class="primary" data-kitchen-status="${o.id}" data-next-status="preparing">Empezar preparación</button><button class="danger" data-kitchen-status="${o.id}" data-next-status="cancelled">Cancelar</button>`;
+  }else if(o.status==='preparing'){
+    actions=`<button class="success" data-kitchen-status="${o.id}" data-next-status="ready">Marcar como listo</button>`;
+  }else if(o.status==='ready'){
+    actions=`<button class="dark" data-kitchen-status="${o.id}" data-next-status="delivered">Entregar pedido</button>`;
+  }
+  return `<article class="kitchenCard ${late?'isLate':''}">
+    <div class="kitchenCardHead"><h3>#${o.order_number}</h3><span class="kitchenTimer" data-created-at="${o.created_at}">${elapsedLabel(o.created_at)}</span></div>
+    <p class="kitchenCustomer">${esc(o.customer_name)}</p>
+    <p class="kitchenMeta">${orderTypeLabel(o.order_type)} · ${new Date(o.created_at).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}</p>
+    <ul class="kitchenItems">${(o.order_items||[]).map(i=>`<li>${i.quantity} × ${esc(i.product_name)}${i.notes?`<small> — ${esc(i.notes)}</small>`:''}</li>`).join('')}</ul>
+    ${o.notes?`<div class="kitchenNotes"><b>Nota:</b> ${esc(o.notes)}</div>`:''}
+    <div class="kitchenCardActions">${actions}</div>
+  </article>`;
+}
+function renderKitchen(){
+  const pending=orders.filter(o=>['pending','confirmed'].includes(o.status));
+  const preparing=orders.filter(o=>o.status==='preparing');
+  const ready=orders.filter(o=>o.status==='ready');
+  $('#kitchenPendingCount').textContent=pending.length;
+  $('#kitchenPreparingCount').textContent=preparing.length;
+  $('#kitchenReadyCount').textContent=ready.length;
+  $('#kitchenPending').innerHTML=pending.length?pending.map(kitchenCard).join(''):'<div class="kitchenEmpty">Sin pedidos nuevos</div>';
+  $('#kitchenPreparing').innerHTML=preparing.length?preparing.map(kitchenCard).join(''):'<div class="kitchenEmpty">Nada en preparación</div>';
+  $('#kitchenReady').innerHTML=ready.length?ready.map(kitchenCard).join(''):'<div class="kitchenEmpty">No hay pedidos listos</div>';
+  $$('[data-kitchen-status]').forEach(b=>b.onclick=()=>updateKitchenStatus(b.dataset.kitchenStatus,b.dataset.nextStatus));
+}
+async function updateKitchenStatus(id,status){
+  const {error}=await db.from('orders').update({status}).eq('id',id);
+  if(error)return toast(error.message);
+  toast(`Pedido actualizado: ${statusLabels[status]||status}`);
+  await loadOrders();
+}
+function startKitchenClock(){
+  clearInterval(kitchenTimerHandle);
+  kitchenTimerHandle=setInterval(()=>{
+    $$('[data-created-at]').forEach(el=>el.textContent=elapsedLabel(el.dataset.createdAt));
+  },30000);
+}
+function playKitchenAlert(){
+  if(!$('#kitchenSound')?.checked)return;
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator(),gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.frequency.value=880;gain.gain.value=.08;osc.start();
+    setTimeout(()=>{osc.stop();ctx.close()},220);
+  }catch{}
+}
+function subscribeOrdersRealtime(){
+  if(ordersChannel)db.removeChannel(ordersChannel);
+  lastKnownOrderIds=new Set(orders.map(o=>o.id));
+  ordersChannel=db.channel('mordisco-orders-live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'orders'},async payload=>{
+      const isNew=payload.eventType==='INSERT'&&!lastKnownOrderIds.has(payload.new?.id);
+      await loadOrders();
+      if(isNew){playKitchenAlert();toast(`Nuevo pedido #${payload.new.order_number||''}`)}
+    })
+    .on('postgres_changes',{event:'*',schema:'public',table:'order_items'},async()=>{await loadOrders()})
+    .subscribe();
+}
+
 function renderMetrics(){
   const valid=orders.filter(o=>o.status!=='cancelled');
   const today=new Date().toISOString().slice(0,10);
@@ -108,6 +183,8 @@ function renderDashboardExtras(){
   $('#featuredSummary').innerHTML=featured.length?featured.map(p=>`<div class="miniProduct"><span>${esc(p.name)}</span><strong>${money(p.price)}</strong></div>`).join(''):'<p class="emptySmall">No hay productos destacados.</p>';
 }
 $('#refreshOrders').onclick=loadOrders;
+$('#refreshKitchen').onclick=loadOrders;
+$('#fullscreenKitchen').onclick=()=>{const board=$('#kitchenBoard');if(!document.fullscreenElement)board.requestFullscreen?.();else document.exitFullscreen?.()};
 $('#dashboardRefresh').onclick=loadOrders;
 $('#adminProductSearch').oninput=e=>{adminProductQuery=e.target.value;renderAdminProducts()};
 $('#adminProductFilter').onchange=e=>{adminProductFilter=e.target.value;renderAdminProducts()};

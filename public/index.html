@@ -36,7 +36,7 @@
 </main>
 
 <section id="adminView" class="hidden adminShell">
- <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard">Resumen</button><button data-tab="products" class="active">Productos</button><button data-tab="categories">Categorías</button><button data-tab="orders">Pedidos</button><button data-tab="settings">Negocio</button><button id="logoutBtn">Cerrar sesión</button><button id="backToStore">Ver página</button></aside>
+ <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard">Resumen</button><button data-tab="products" class="active">Productos</button><button data-tab="categories">Categorías</button><button data-tab="orders">Pedidos</button><button data-tab="kitchen">Cocina</button><button data-tab="settings">Negocio</button><button id="logoutBtn">Cerrar sesión</button><button id="backToStore">Ver página</button></aside>
  <div class="adminContent">
    <div class="adminTop"><div><span class="eyebrow">MORDISCO OS CLOUD</span><h1 id="adminTitle">Productos</h1></div><span class="cloudStatus">● Conectado a Supabase</span></div>
    <section id="tab-dashboard" class="tab hidden">
@@ -83,6 +83,35 @@
       </div>
       <div id="adminOrders" class="ordersGrid"></div>
     </section>
+
+   <section id="tab-kitchen" class="tab hidden">
+      <div class="kitchenToolbar">
+        <div>
+          <h2>Pantalla de cocina</h2>
+          <p>Los pedidos nuevos aparecen automáticamente.</p>
+        </div>
+        <div class="kitchenActions">
+          <label class="check"><input id="kitchenSound" type="checkbox" checked> Sonido</label>
+          <button class="dark" id="refreshKitchen">Actualizar</button>
+          <button class="primary" id="fullscreenKitchen">Pantalla completa</button>
+        </div>
+      </div>
+      <div class="kitchenBoard" id="kitchenBoard">
+        <section class="kitchenColumn">
+          <header><span class="statusDot pendingDot"></span><h3>Nuevos</h3><b id="kitchenPendingCount">0</b></header>
+          <div id="kitchenPending" class="kitchenCards"></div>
+        </section>
+        <section class="kitchenColumn">
+          <header><span class="statusDot preparingDot"></span><h3>Preparando</h3><b id="kitchenPreparingCount">0</b></header>
+          <div id="kitchenPreparing" class="kitchenCards"></div>
+        </section>
+        <section class="kitchenColumn">
+          <header><span class="statusDot readyDot"></span><h3>Listos</h3><b id="kitchenReadyCount">0</b></header>
+          <div id="kitchenReady" class="kitchenCards"></div>
+        </section>
+      </div>
+    </section>
+
    <section id="tab-settings" class="tab hidden"><form id="settingsForm" class="panel formGrid"><label>Nombre<input id="sName"></label><label>WhatsApp<input id="sWhatsapp" placeholder="593999999999"></label><label class="wide">Descripción<textarea id="sDescription"></textarea></label><label>Dirección<input id="sAddress"></label><label>Horario<input id="sSchedule"></label><label>Costo delivery<input id="sDelivery" type="number" min="0" step="0.01"></label><label>Pedido mínimo<input id="sMinimum" type="number" min="0" step="0.01"></label><label class="check"><input id="sAccepting" type="checkbox"> Recibir pedidos</label><div class="wide"><button class="primary">Guardar cambios</button></div></form></section>
  </div>
 </section>
