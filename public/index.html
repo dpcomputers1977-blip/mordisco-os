@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#11100e">
+<title>Mordisco Fast Food</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#inicio"><img src="media/logo.png" alt="Mordisco"><span>MORDISCO</span></a>
+  <nav><a href="#inicio">Inicio</a><a href="#menu">Menú</a><a href="#contacto">Contacto</a></nav>
+  <div class="top-actions"><button class="ghost" id="adminBtn">Administrar</button><button class="cartBtn" id="cartBtn">🛒 <b id="cartCount">0</b></button></div>
+</header>
+
+<main id="publicView">
+<section class="hero" id="inicio">
+ <video autoplay muted loop playsinline poster="media/hamburguesa.png"><source src="media/promo.mp4" type="video/mp4"></video>
+ <div class="overlay"></div>
+ <div class="heroCopy"><span class="kicker">🔥 SABOR SIN DISCUSIÓN</span><h1>DALE UN <em>MORDISCO</em> A LO BRUTAL.</h1><p id="businessDescription">El mejor sabor para compartir.</p><a class="primary" href="#menu">Ver menú</a></div>
+ <img class="heroBurger" src="media/hamburguesa.png" alt="Hamburguesa">
+</section>
+
+<section class="benefits"><article>🚚 <b>Delivery</b><span>Directo a tu puerta</span></article><article>🏪 <b>Retiro</b><span>Pide y pasa por él</span></article><article>🍽️ <b>En el local</b><span>Disfrútalo recién hecho</span></article></section>
+
+<section class="menuSection" id="menu">
+ <div class="sectionHead"><div><span class="eyebrow">NUESTRO MENÚ</span><h2>Elige tu próximo mordisco</h2></div><input id="searchInput" placeholder="Buscar producto..."></div>
+ <div class="categories" id="categoryFilters"></div>
+ <div id="loadingProducts" class="notice">Cargando menú desde la nube…</div>
+ <div class="productGrid" id="productGrid"></div>
+</section>
+
+<section class="contact" id="contacto"><div><span class="eyebrow">PIDE DIRECTO</span><h2>Tu próximo mordisco está cerca.</h2><p>📍 <span id="businessAddress">Dirección por configurar</span></p><p>🕒 <span id="businessSchedule">Horario por configurar</span></p></div><button class="primary" id="orderNowBtn">Hacer pedido</button></section>
+</main>
+
+<section id="adminView" class="hidden adminShell">
+ <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard">Resumen</button><button data-tab="products" class="active">Productos</button><button data-tab="categories">Categorías</button><button data-tab="orders">Pedidos</button><button data-tab="settings">Negocio</button><button id="logoutBtn">Cerrar sesión</button><button id="backToStore">Ver página</button></aside>
+ <div class="adminContent">
+   <div class="adminTop"><div><span class="eyebrow">MORDISCO OS CLOUD</span><h1 id="adminTitle">Productos</h1></div><span class="cloudStatus">● Conectado a Supabase</span></div>
+   <section id="tab-dashboard" class="tab hidden"><div class="metrics"><article><span>Pedidos</span><b id="metricOrders">0</b></article><article><span>Ventas</span><b id="metricSales">$0.00</b></article><article><span>Productos activos</span><b id="metricProducts">0</b></article><article><span>Categorías</span><b id="metricCategories">0</b></article></div></section>
+   <section id="tab-products" class="tab">
+    <form id="productForm" class="panel formGrid"><input type="hidden" id="pId"><label>Nombre<input id="pName" required></label><label>Categoría<select id="pCategory" required></select></label><label>Precio<input id="pPrice" type="number" min="0" step="0.01" required></label><label>Orden<input id="pSort" type="number" value="0"></label><label class="wide">Descripción<textarea id="pDescription"></textarea></label><label>Imagen<input id="pImageFile" type="file" accept="image/*"></label><div class="previewBox"><img id="pPreview" class="hidden"><span id="pNoImage">Sin imagen</span></div><label class="check"><input id="pFeatured" type="checkbox"> Destacado</label><label class="check"><input id="pActive" type="checkbox" checked> Visible</label><div class="wide actions"><button class="primary">Guardar producto</button><button type="button" class="dark" id="clearProduct">Limpiar</button><button type="button" class="danger hidden" id="removeProductImage">Quitar imagen</button></div></form>
+    <div id="adminProducts" class="adminList"></div>
+   </section>
+   <section id="tab-categories" class="tab hidden"><form id="categoryForm" class="panel inlineForm"><input type="hidden" id="cId"><input id="cName" placeholder="Nombre de la categoría" required><input id="cSort" type="number" value="0" placeholder="Orden"><label class="check"><input id="cActive" type="checkbox" checked> Activa</label><button class="primary">Guardar</button><button type="button" class="dark" id="clearCategory">Limpiar</button></form><div id="adminCategories" class="adminList"></div></section>
+   <section id="tab-orders" class="tab hidden"><div class="toolbar"><button class="dark" id="refreshOrders">Actualizar pedidos</button></div><div id="adminOrders" class="ordersGrid"></div></section>
+   <section id="tab-settings" class="tab hidden"><form id="settingsForm" class="panel formGrid"><label>Nombre<input id="sName"></label><label>WhatsApp<input id="sWhatsapp" placeholder="593999999999"></label><label class="wide">Descripción<textarea id="sDescription"></textarea></label><label>Dirección<input id="sAddress"></label><label>Horario<input id="sSchedule"></label><label>Costo delivery<input id="sDelivery" type="number" min="0" step="0.01"></label><label>Pedido mínimo<input id="sMinimum" type="number" min="0" step="0.01"></label><label class="check"><input id="sAccepting" type="checkbox"> Recibir pedidos</label><div class="wide"><button class="primary">Guardar cambios</button></div></form></section>
+ </div>
+</section>
+
+<div id="loginModal" class="modal hidden"><div class="modalCard loginCard"><button class="close" data-close="loginModal">×</button><img src="media/logo.png" alt="Mordisco"><h2>Administración</h2><p>Ingresa con el correo creado en Supabase.</p><form id="loginForm"><input id="loginEmail" type="email" placeholder="Correo" required><input id="loginPassword" type="password" placeholder="Contraseña" required><button class="primary">Ingresar</button></form><small id="loginMessage"></small></div></div>
+
+<div id="cartDrawer" class="drawer"><div class="drawerHead"><h2>Tu pedido</h2><button id="closeCart">×</button></div><div id="cartItems"></div><div class="totals"><p><span>Subtotal</span><b id="subtotal">$0.00</b></p><p><span>Delivery</span><b id="deliveryTotal">$0.00</b></p><p class="grand"><span>Total</span><b id="grandTotal">$0.00</b></p></div><form id="orderForm"><input id="customerName" placeholder="Nombre" required><input id="customerPhone" placeholder="Teléfono" required><select id="orderType"><option value="delivery">Delivery</option><option value="pickup">Retiro</option><option value="local">En el local</option></select><input id="customerAddress" placeholder="Dirección de entrega"><select id="paymentMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option></select><textarea id="orderNotes" placeholder="Notas del pedido"></textarea><button class="primary">Confirmar pedido</button></form></div>
+<div id="toast" class="toast"></div>
+<script src="app.js"></script>
+</body></html>

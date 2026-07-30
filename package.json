@@ -1,0 +1,10 @@
+{
+  "name": "mordisco-os",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve public",
+    "build": "node scripts/build.mjs"
+  },
+  "description": "Sistema web de Mordisco Fast Food conectado a Supabase"
+}
