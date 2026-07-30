@@ -785,3 +785,47 @@ body.employeeMode .deleteSaleBtn{
 body.employeeMode .deleteSaleBtn{
   display:none !important;
 }
+
+/* V13.12 — COBRO POSTERIOR */
+.paymentLaterNotice{
+  grid-column:1/-1;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  padding:13px;
+  border-radius:12px;
+  background:#fff4cf;
+  border:1px solid #f0d67b;
+}
+.paymentLaterNotice span{font-size:.8rem;color:#6f5b18}
+.orderPaymentStatus{
+  display:inline-flex;
+  width:max-content;
+  padding:5px 9px;
+  margin:6px 0;
+  border-radius:999px;
+  font-size:.72rem;
+  font-weight:900;
+}
+.orderPaymentStatus.paid{background:#dff5e6;color:#176b36}
+.orderPaymentStatus.unpaid{background:#fff0c7;color:#846000}
+.chargeOrderCard{max-width:440px}
+.chargeOrderTotal{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:#171512;
+  color:#fff;
+  padding:16px;
+  border-radius:13px;
+  margin:14px 0;
+}
+.chargeOrderTotal strong{font-size:1.5rem;color:#ffc400}
+.chargeChange{
+  display:flex;
+  justify-content:space-between;
+  padding:12px;
+  margin:10px 0;
+  background:#f3eee5;
+  border-radius:10px;
+}

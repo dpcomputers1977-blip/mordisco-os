@@ -21,7 +21,8 @@ async function login(){
  const id=$('#commandEmployee').value,pin=$('#commandPin').value.trim();
  if(!/^\d{4,6}$/.test(pin))return toast('PIN inválido');
  const {data,error}=await db.rpc('verify_staff_pin',{staff_id:id,staff_pin:pin});
- if(error||!data)return toast('PIN incorrecto');
+ if(error){console.error('Error verificando PIN:',error);return toast('No se pudo validar el PIN. Ejecuta el SQL V13.8')}
+ if(!data)return toast('PIN incorrecto');
  employee=staff.find(s=>s.id===id);sessionStorage.setItem('commandEmployee',JSON.stringify(employee));
  $('#commandEmployeeName').textContent=employee.name;$('#commandLogin').classList.add('hidden');$('#commandApp').classList.remove('hidden');renderTables();
 }
@@ -39,7 +40,7 @@ async function sendCommand(){
  if(!employee)return toast('Inicia sesión');
  if(!cart.length)return toast('Agrega productos');
  const total=cart.reduce((s,r)=>{const p=products.find(x=>x.id===r.id);return s+Number(p.price)*r.qty},0);
- const order={customer_name:$('#commandCustomer').value.trim()||currentTable.name,customer_phone:'',customer_address:'',order_type:'local',payment_method:'cash',notes:`${currentTable.name}. ${$('#commandNotes').value.trim()}`,subtotal:total,delivery_cost:0,total,status:'pending',waiter_id:employee.role==='waiter'?employee.id:null,cashier_id:employee.role==='cashier'?employee.id:null,table_id:currentTable.id};
+ const order={customer_name:$('#commandCustomer').value.trim()||currentTable.name,customer_phone:'',customer_address:'',order_type:'local',payment_method:null,payment_status:'unpaid',notes:`${currentTable.name}. ${$('#commandNotes').value.trim()}`,subtotal:total,delivery_cost:0,total,status:'pending',waiter_id:employee.role==='waiter'?employee.id:null,cashier_id:employee.role==='cashier'?employee.id:null,table_id:currentTable.id};
  const {data,error}=await db.from('orders').insert(order).select().single();if(error)return toast(error.message);
  const items=cart.map(r=>{const p=products.find(x=>x.id===r.id);return {order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:r.qty,subtotal:Number(p.price)*r.qty}});
  const {error:itemError}=await db.from('order_items').insert(items);if(itemError)return toast(itemError.message);

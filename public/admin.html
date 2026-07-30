@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#11100e">
 <title>Mordisco Fast Food</title>
-<link rel="stylesheet" href="styles.css?v=13.11.0">
+<link rel="stylesheet" href="styles.css?v=13.12.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -128,7 +128,7 @@
       <div class="posHeader">
         <div>
           <h2>Punto de venta</h2>
-          <p>Registra ventas de mostrador y envíalas directamente a cocina.</p>
+          <p>Crea la orden, envíala a cocina y realiza el cobro cuando el cliente esté listo.</p>
         </div>
         <div class="posHeaderStats">
           <span>Cajero activo</span>
@@ -179,26 +179,13 @@
                 <option value="pickup">Para llevar</option>
               </select>
             </label>
-            <label>Método de pago
-              <select id="posPayment">
-                <option value="cash">Efectivo</option>
-                <option value="card">Tarjeta</option>
-                <option value="transfer">Transferencia</option>
-              </select>
-            </label>
-            <label id="posReceivedWrap">Recibido
-              <input id="posReceived" type="number" min="0" step="0.01" value="0">
-            </label>
-            <div class="posChange">
-              <span>Cambio</span>
-              <strong id="posChange">$0.00</strong>
-            </div>
+            <div class="paymentLaterNotice"><b>Pago pendiente</b><span>El cobro se realizará después desde Pedidos.</span></div>
             <label class="wide">Notas
               <textarea id="posNotes" placeholder="Sin cebolla, extra salsa, etc."></textarea>
             </label>
           </div>
 
-          <button class="primary posChargeBtn" id="posCharge">Cobrar y enviar a cocina</button>
+          <button class="primary posChargeBtn" id="posCharge">Enviar a cocina</button>
         </aside>
       </div>
     </section>
@@ -558,6 +545,28 @@
 
 <div id="cartDrawer" class="drawer"><div class="drawerHead"><h2>Tu pedido</h2><button id="closeCart">×</button></div><div id="cartItems"></div><div class="totals"><p><span>Subtotal</span><b id="subtotal">$0.00</b></p><p><span>Delivery</span><b id="deliveryTotal">$0.00</b></p><p class="grand"><span>Total</span><b id="grandTotal">$0.00</b></p></div><form id="orderForm"><input id="customerName" placeholder="Nombre" required><input id="customerPhone" placeholder="Teléfono" required><select id="orderType"><option value="delivery">Delivery</option><option value="pickup">Retiro</option><option value="local">En el local</option></select><input id="customerAddress" placeholder="Dirección de entrega"><select id="paymentMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option></select><textarea id="orderNotes" placeholder="Notas del pedido"></textarea><button class="primary">Confirmar pedido</button></form></div>
 
+
+<div id="chargeOrderModal" class="modal hidden">
+  <div class="modalCard chargeOrderCard">
+    <button class="close" data-close="chargeOrderModal">×</button>
+    <span class="eyebrow">COBRO DE VENTA</span>
+    <h2 id="chargeOrderTitle">Cobrar pedido</h2>
+    <div class="chargeOrderTotal"><span>Total</span><strong id="chargeOrderTotal">$0.00</strong></div>
+    <label>Método de pago
+      <select id="chargePaymentMethod">
+        <option value="cash">Efectivo</option>
+        <option value="card">Tarjeta</option>
+        <option value="transfer">Transferencia</option>
+      </select>
+    </label>
+    <label id="chargeReceivedWrap">Efectivo recibido
+      <input id="chargeReceived" type="number" min="0" step="0.01" value="0">
+    </label>
+    <div class="chargeChange"><span>Cambio</span><strong id="chargeChange">$0.00</strong></div>
+    <button class="primary full" id="confirmChargeOrder">Confirmar cobro</button>
+  </div>
+</div>
+
 <div id="receiptModal" class="modal hidden">
   <div class="modalCard receiptModalCard">
     <button class="close" data-close="receiptModal">×</button>
@@ -624,5 +633,5 @@
   </div>
 </div>
 <div id="toast" class="toast"></div>
-<script src="app.js?v=13.11.0"></script>
+<script src="app.js?v=13.12.0"></script>
 </body></html>

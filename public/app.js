@@ -89,7 +89,7 @@ function changeQty(id,d){const f=cart.find(x=>x.id===id);if(!f)return;f.qty+=d;c
 function totals(){const subtotal=cart.reduce((s,x)=>{const p=products.find(y=>y.id===x.id);return s+(p?Number(p.price)*x.qty:0)},0);const delivery=$('#orderType').value==='delivery'?Number(settings.delivery_cost||0):0;return{subtotal,delivery,total:subtotal+delivery}}
 function renderCart(){$('#cartCount').textContent=cart.reduce((s,x)=>s+x.qty,0);$('#cartItems').innerHTML=cart.length?cart.map(x=>{const p=products.find(y=>y.id===x.id);if(!p)return'';return`<div class="cartItem">${p.image_url?`<img src="${esc(p.image_url)}">`:'<div></div>'}<div><b>${esc(p.name)}</b><small>${money(p.price)}</small><div class="qty"><button data-minus="${p.id}">−</button><span>${x.qty}</span><button data-plus="${p.id}">+</button></div></div><b>${money(Number(p.price)*x.qty)}</b></div>`}).join(''):'<p class="notice">Tu carrito está vacío.</p>';$$('[data-minus]').forEach(b=>b.onclick=()=>changeQty(b.dataset.minus,-1));$$('[data-plus]').forEach(b=>b.onclick=()=>changeQty(b.dataset.plus,1));const t=totals();$('#subtotal').textContent=money(t.subtotal);$('#deliveryTotal').textContent=money(t.delivery);$('#grandTotal').textContent=money(t.total)}
 function openCart(){$('#cartDrawer').classList.add('open')} $('#cartBtn').onclick=openCart;$('#orderNowBtn').onclick=openCart;$('#closeCart').onclick=()=>$('#cartDrawer').classList.remove('open');$('#orderType').onchange=()=>{renderCart();$('#customerAddress').classList.toggle('hidden',$('#orderType').value!=='delivery')};
-$('#orderForm').onsubmit=async e=>{e.preventDefault();if(!cart.length)return toast('Agrega productos al pedido');if(settings.accepting_orders===false)return toast('Temporalmente no recibimos pedidos');const t=totals();if(t.subtotal<Number(settings.minimum_order||0))return toast(`Pedido mínimo: ${money(settings.minimum_order)}`);const order={customer_name:$('#customerName').value.trim(),customer_phone:$('#customerPhone').value.trim(),customer_address:$('#customerAddress').value.trim(),order_type:$('#orderType').value,payment_method:$('#paymentMethod').value,notes:$('#orderNotes').value.trim(),subtotal:t.subtotal,delivery_cost:t.delivery,total:t.total,status:'pending'};const {data,error}=await db.from('orders').insert(order).select().single();if(error)return toast('No se pudo guardar el pedido: '+error.message);await db.rpc('upsert_customer_from_order',{p_name:order.customer_name,p_phone:order.customer_phone,p_email:null,p_address:order.customer_address||null}).catch(()=>{});const items=cart.map(x=>{const p=products.find(y=>y.id===x.id);return{order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:x.qty,subtotal:Number(p.price)*x.qty}});const {error:itemError}=await db.from('order_items').insert(items);if(itemError)return toast('Pedido creado, pero faltaron detalles');const msg=`🍔 *PEDIDO #${data.order_number} — MORDISCO*
+$('#orderForm').onsubmit=async e=>{e.preventDefault();if(!cart.length)return toast('Agrega productos al pedido');if(settings.accepting_orders===false)return toast('Temporalmente no recibimos pedidos');const t=totals();if(t.subtotal<Number(settings.minimum_order||0))return toast(`Pedido mínimo: ${money(settings.minimum_order)}`);const order={customer_name:$('#customerName').value.trim(),customer_phone:$('#customerPhone').value.trim(),customer_address:$('#customerAddress').value.trim(),order_type:$('#orderType').value,payment_method:null,payment_status:'unpaid',notes:$('#orderNotes').value.trim(),subtotal:t.subtotal,delivery_cost:t.delivery,total:t.total,status:'pending'};const {data,error}=await db.from('orders').insert(order).select().single();if(error)return toast('No se pudo guardar el pedido: '+error.message);await db.rpc('upsert_customer_from_order',{p_name:order.customer_name,p_phone:order.customer_phone,p_email:null,p_address:order.customer_address||null}).catch(()=>{});const items=cart.map(x=>{const p=products.find(y=>y.id===x.id);return{order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:x.qty,subtotal:Number(p.price)*x.qty}});const {error:itemError}=await db.from('order_items').insert(items);if(itemError)return toast('Pedido creado, pero faltaron detalles');const msg=`🍔 *PEDIDO #${data.order_number} — MORDISCO*
 Cliente: ${order.customer_name}
 ${items.map(i=>`${i.quantity} x ${i.product_name} — ${money(i.subtotal)}`).join('\n')}
 TOTAL: ${money(t.total)}`;cart=[];renderCart();$('#orderForm').reset();toast('Pedido guardado en la nube');if(settings.whatsapp)window.open(`https://wa.me/${String(settings.whatsapp).replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank')};
@@ -193,6 +193,77 @@ function resetCategory(){$('#categoryForm').reset();$('#cId').value='';$('#cSort
 $('#categoryForm').onsubmit=async e=>{e.preventDefault();const id=$('#cId').value,row={name:$('#cName').value.trim(),sort_order:Number($('#cSort').value||0),active:$('#cActive').checked};const {error}=await(id?db.from('categories').update(row).eq('id',id):db.from('categories').insert(row));if(error)return toast(error.message);resetCategory();await loadCategories();renderAll();toast('Categoría guardada')};
 function renderAdminCategories(){$('#adminCategories').innerHTML=categories.map(c=>`<article class="adminRow"><div></div><div><b>${esc(c.name)}</b><small>Orden ${c.sort_order} · ${c.active?'Activa':'Oculta'}</small></div><button data-edit-cat="${c.id}">Editar</button><button class="danger" data-delete-cat="${c.id}">Eliminar</button></article>`).join('');$$('[data-edit-cat]').forEach(b=>b.onclick=()=>{const c=categories.find(x=>x.id===b.dataset.editCat);$('#cId').value=c.id;$('#cName').value=c.name;$('#cSort').value=c.sort_order;$('#cActive').checked=c.active});$$('[data-delete-cat]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Eliminar categoría? Los productos quedarán sin categoría.'))return;const {error}=await db.from('categories').delete().eq('id',b.dataset.deleteCat);if(error)return toast(error.message);await loadCategories();await loadProducts();renderAll()})}
 
+
+function openChargeOrder(orderId){
+  const order=orders.find(o=>String(o.id)===String(orderId));
+  if(!order)return toast('No se encontró el pedido');
+  if(order.payment_status==='paid')return toast('Este pedido ya está pagado');
+
+  paymentOrderId=orderId;
+  $('#chargeOrderTitle').textContent=`Cobrar pedido #${order.order_number}`;
+  $('#chargeOrderTotal').textContent=money(order.total);
+  $('#chargePaymentMethod').value='cash';
+  $('#chargeReceived').value=Number(order.total).toFixed(2);
+  updateChargeChange();
+  $('#chargeOrderModal').classList.remove('hidden');
+}
+
+function updateChargeChange(){
+  const order=orders.find(o=>String(o.id)===String(paymentOrderId));
+  if(!order)return;
+  const method=$('#chargePaymentMethod').value;
+  const cash=method==='cash';
+  $('#chargeReceivedWrap').classList.toggle('hidden',!cash);
+  $('.chargeChange').classList.toggle('hidden',!cash);
+  const received=Number($('#chargeReceived').value||0);
+  $('#chargeChange').textContent=money(Math.max(0,received-Number(order.total)));
+}
+
+async function confirmChargeOrder(){
+  const order=orders.find(o=>String(o.id)===String(paymentOrderId));
+  if(!order)return toast('No se encontró el pedido');
+
+  if(currentEmployee?.role==='cashier'&&!currentShift){
+    return toast('Debes iniciar tu turno antes de cobrar');
+  }
+
+  const method=$('#chargePaymentMethod').value;
+  const received=method==='cash'?Number($('#chargeReceived').value||0):Number(order.total);
+  if(method==='cash'&&received<Number(order.total)){
+    return toast('El efectivo recibido es menor al total');
+  }
+
+  const button=$('#confirmChargeOrder');
+  button.disabled=true;
+  button.textContent='Procesando...';
+
+  const {data,error}=await db.rpc('pay_order',{
+    p_order_id:order.id,
+    p_payment_method:method,
+    p_received:received,
+    p_cashier_id:currentEmployee?.role==='cashier'?currentEmployee.id:(order.cashier_id||null)
+  });
+
+  button.disabled=false;
+  button.textContent='Confirmar cobro';
+
+  if(error)return toast('No se pudo cobrar: '+error.message);
+
+  const paidOrder={...order,payment_method:method,payment_status:'paid',cashier_name:currentEmployee?.name||order.cashier?.name||'Administrador'};
+  lastReceiptOrder={order:paidOrder,items:order.order_items||[],received};
+  $('#receiptContent').innerHTML=buildReceipt(paidOrder,order.order_items||[],received);
+  $('#chargeOrderModal').classList.add('hidden');
+  $('#receiptModal').classList.remove('hidden');
+
+  await Promise.all([loadOrders(),loadFinance()]);
+  if(typeof loadShifts==='function')await loadShifts();
+  toast(`Pedido #${order.order_number} cobrado correctamente`);
+}
+
+$('#chargePaymentMethod').onchange=updateChargeChange;
+$('#chargeReceived').oninput=updateChargeChange;
+$('#confirmChargeOrder').onclick=confirmChargeOrder;
+
 async function deleteSale(orderId){
   if(!isAdminSession){
     return toast('Solo un administrador autenticado puede eliminar ventas');
@@ -263,11 +334,13 @@ function renderOrders(){
     <h3>${esc(o.customer_name)}</h3>
     <p>${o.order_items?.map(i=>`${i.quantity}× ${esc(i.product_name)}`).join(', ')||''}</p>
     <p>${esc(o.customer_phone||'Sin teléfono')} · ${esc(orderTypeLabel(o.order_type))}</p>
-    <p class="orderStaff">${o.cashier?.name?`💵 Cajero: ${esc(o.cashier.name)}`:'💵 Cajero: no registrado'}${o.waiter?.name?` · 🧑‍🍽️ Mesero: ${esc(o.waiter.name)}`:''}${o.restaurant_tables?.name?` · 🍽️ ${esc(o.restaurant_tables.name)}`:''}</p>
+    <p class="orderStaff">${o.cashier?.name?`💵 Cajero: ${esc(o.cashier.name)}`:'💵 Cajero: pendiente'}${o.waiter?.name?` · 🧑‍🍽️ Mesero: ${esc(o.waiter.name)}`:''}${o.restaurant_tables?.name?` · 🍽️ ${esc(o.restaurant_tables.name)}`:''}</p>
+    <div class="orderPaymentStatus ${o.payment_status==='paid'?'paid':'unpaid'}">${o.payment_status==='paid'?'✓ Pagada':'⏳ Pendiente de pago'}</div>
     <strong>${money(o.total)}</strong>
     <p>${new Date(o.created_at).toLocaleString('es-EC')}</p>
     <div class="orderActions">
       <select data-status="${o.id}">${Object.entries(statusLabels).map(([value,label])=>`<option ${value===o.status?'selected':''} value="${value}">${label}</option>`).join('')}</select>
+      ${(isAdminSession||currentEmployee?.role==='cashier')&&o.payment_status!=='paid'?`<button class="primary chargeOrderBtn" data-charge-order="${o.id}">Cobrar</button>`:''}
       ${isAdminSession?`<button class="danger deleteSaleBtn" data-delete-order="${o.id}">Eliminar venta</button>`:''}
     </div>
   </article>`).join(''):'<div class="notice">No hay pedidos con ese estado.</div>';
@@ -275,12 +348,10 @@ function renderOrders(){
   $$('[data-status]').forEach(s=>s.onchange=async()=>{
     const {error}=await db.from('orders').update({status:s.value}).eq('id',s.dataset.status);
     if(error)toast(error.message);
-    else{
-      toast('Estado actualizado');
-      await Promise.all([loadOrders(),loadFinance()]);
-    }
+    else{toast('Estado actualizado');await loadOrders()}
   });
 
+  $$('[data-charge-order]').forEach(b=>b.onclick=()=>openChargeOrder(b.dataset.chargeOrder));
   $$('[data-delete-order]').forEach(b=>b.onclick=()=>deleteSale(b.dataset.deleteOrder));
 }
 function elapsedLabel(createdAt){
@@ -461,8 +532,8 @@ function resetPosSale(){
   $('#posCustomer').value='';
   $('#posPhone').value='';
   $('#posOrderType').value='local';$('#posCashier').value=currentEmployee?.role==='cashier'?currentEmployee.id:'';$('#posWaiter').value='';
-  $('#posPayment').value='cash';
-  $('#posReceived').value='0';
+  if($('#posPayment'))$('#posPayment').value='cash';
+  if($('#posReceived'))$('#posReceived').value='0';
   $('#posNotes').value='';
   renderPosCart();
 }
@@ -494,53 +565,60 @@ function buildReceipt(order,items,received){
 }
 async function completePosSale(){
   if(!posCart.length)return toast('Agrega al menos un producto');
-  if(!$('#posCashier').value)return toast('Selecciona el cajero que realiza el cobro');
-  if(currentEmployee?.role==='cashier'&&!currentShift)return toast('Debes iniciar tu turno antes de cobrar');
+
   const totals=posTotals();
-  const payment=$('#posPayment').value;
-  const received=Number($('#posReceived').value||0);
-  if(payment==='cash'&&received<totals.total)return toast('El efectivo recibido es menor al total');
   const order={
     customer_name:$('#posCustomer').value.trim()||'Consumidor final',
     customer_phone:$('#posPhone').value.trim(),
     customer_address:'',
     order_type:$('#posOrderType').value,
-    payment_method:payment,
+    payment_method:null,
+    payment_status:'unpaid',
     notes:$('#posNotes').value.trim(),
-    cashier_id:$('#posCashier').value||null,
+    cashier_id:null,
     waiter_id:$('#posWaiter').value||null,
     subtotal:totals.subtotal,
     delivery_cost:0,
     total:totals.total,
     status:'pending'
   };
-  const chargeBtn=$('#posCharge');
-  chargeBtn.disabled=true;
-  chargeBtn.textContent='Procesando...';
+
+  const sendBtn=$('#posCharge');
+  sendBtn.disabled=true;
+  sendBtn.textContent='Enviando...';
+
   const {data,error}=await db.from('orders').insert(order).select().single();
   if(error){
-    chargeBtn.disabled=false;chargeBtn.textContent='Cobrar y enviar a cocina';
-    return toast('No se pudo registrar la venta: '+error.message);
+    sendBtn.disabled=false;
+    sendBtn.textContent='Enviar a cocina';
+    return toast('No se pudo crear la orden: '+error.message);
   }
+
   const items=posCart.map(item=>{
     const p=products.find(x=>String(x.id)===String(item.id));
-    return{order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:item.qty,subtotal:Number(p.price)*item.qty};
+    return{
+      order_id:data.id,
+      product_id:p.id,
+      product_name:p.name,
+      unit_price:p.price,
+      quantity:item.qty,
+      subtotal:Number(p.price)*item.qty
+    };
   });
+
   const {error:itemError}=await db.from('order_items').insert(items);
-  chargeBtn.disabled=false;chargeBtn.textContent='Cobrar y enviar a cocina';
-  if(itemError)return toast('La venta se creó, pero fallaron los detalles: '+itemError.message);
-  data.cashier_name=$('#posCashier').selectedOptions[0]?.textContent||'';data.waiter_name=$('#posWaiter').selectedOptions[0]?.textContent||'';lastReceiptOrder={order:data,items,received};
-  $('#receiptContent').innerHTML=buildReceipt(data,items,received);
-  $('#receiptModal').classList.remove('hidden');
+  sendBtn.disabled=false;
+  sendBtn.textContent='Enviar a cocina';
+
+  if(itemError)return toast('La orden se creó, pero fallaron los detalles: '+itemError.message);
+
   resetPosSale();
   await loadOrders();
-  toast(`Venta #${data.order_number} enviada a cocina`);
+  toast(`Pedido #${data.order_number} enviado a cocina. Cobro pendiente.`);
 }
 $('#posSearch').oninput=renderPosProducts;
 $('#posCategory').onchange=renderPosProducts;
-$('#posPayment').onchange=updatePosChange;
 $('#posCashier').onchange=()=>{if($('#activeCashierName'))$('#activeCashierName').textContent=$('#posCashier').selectedOptions[0]?.textContent||'Sin seleccionar'};
-$('#posReceived').oninput=updatePosChange;
 $('#posClear').onclick=()=>{if(!posCart.length||confirm('¿Vaciar la venta actual?'))resetPosSale()};
 $('#posCharge').onclick=completePosSale;
 $('#printReceipt').onclick=()=>window.print();
@@ -816,7 +894,7 @@ $('#tableProductSearch').oninput=renderTableProducts;$('#tableCategory').onchang
 $('#sendTableOrder').onclick=async()=>{
   if(!currentTable||!tableCart.length)return toast('Agrega productos');
   const total=tableCart.reduce((s,r)=>{const p=products.find(x=>String(x.id)===String(r.id));return s+Number(p.price)*r.qty},0);
-  const order={customer_name:$('#tableCustomer').value.trim()||currentTable.name,customer_phone:'',customer_address:'',order_type:'local',payment_method:'cash',notes:`${currentTable.name}. ${$('#tableNotes').value.trim()}`.trim(),subtotal:total,delivery_cost:0,total,status:'pending',waiter_id:currentEmployee?.role==='waiter'?currentEmployee.id:(currentTable.staff_id||null),table_id:currentTable.id};
+  const order={customer_name:$('#tableCustomer').value.trim()||currentTable.name,customer_phone:'',customer_address:'',order_type:'local',payment_method:null,payment_status:'unpaid',notes:`${currentTable.name}. ${$('#tableNotes').value.trim()}`.trim(),subtotal:total,delivery_cost:0,total,status:'pending',waiter_id:currentEmployee?.role==='waiter'?currentEmployee.id:(currentTable.staff_id||null),table_id:currentTable.id};
   const {data,error}=await db.from('orders').insert(order).select().single();if(error)return toast(error.message);
   const items=tableCart.map(r=>{const p=products.find(x=>String(x.id)===String(r.id));return{order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:r.qty,subtotal:Number(p.price)*r.qty}});
   const {error:itemError}=await db.from('order_items').insert(items);if(itemError)return toast(itemError.message);
