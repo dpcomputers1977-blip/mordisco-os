@@ -7,7 +7,23 @@ const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 function esc(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-async function init(){await Promise.all([loadCategories(),loadProducts(),loadSettings()]);renderAll();const {data:{session}}=await db.auth.getSession();if(session) await verifyAdmin(false)}
+async function init(){
+  try{
+    await Promise.all([loadCategories(),loadProducts(),loadSettings()]);
+    renderAll();
+  }catch(error){
+    console.warn('Carga inicial:',error);
+  }
+  const {data:{session}}=await db.auth.getSession();
+  if(session){
+    await verifyAdmin(false);
+  }else{
+    $('#publicView').classList.add('hidden');
+    $('#adminView').classList.add('hidden');
+    $('.topbar').classList.add('hidden');
+    $('#loginModal').classList.remove('hidden');
+  }
+}
 async function loadCategories(){const {data,error}=await db.from('categories').select('*').order('sort_order');if(error) return toast('Error cargando categorías');categories=data||[]}
 async function loadProducts(){const {data,error}=await db.from('products').select('*,categories(name)').order('sort_order');$('#loadingProducts').classList.add('hidden');if(error)return toast('Error cargando productos');products=data||[]}
 async function loadSettings(){const {data}=await db.from('business_settings').select('*').eq('id',1).maybeSingle();settings=data||{};applySettings()}
@@ -26,12 +42,45 @@ $('#orderForm').onsubmit=async e=>{e.preventDefault();if(!cart.length)return toa
 Cliente: ${order.customer_name}
 ${items.map(i=>`${i.quantity} x ${i.product_name} — ${money(i.subtotal)}`).join('\n')}
 TOTAL: ${money(t.total)}`;cart=[];renderCart();$('#orderForm').reset();toast('Pedido guardado en la nube');if(settings.whatsapp)window.open(`https://wa.me/${String(settings.whatsapp).replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`,'_blank')};
-$('#adminBtn').onclick=()=>$('#loginModal').classList.remove('hidden');$$('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).classList.add('hidden'));
+$('#adminBtn').onclick=()=>$('#loginModal').classList.remove('hidden');
+$$('[data-close]').forEach(b=>b.onclick=()=>{
+  if(b.dataset.close==='loginModal' && location.pathname==='/admin'){
+    location.href='/';
+    return;
+  }
+  $('#'+b.dataset.close).classList.add('hidden');
+});
 $('#loginForm').onsubmit=async e=>{e.preventDefault();$('#loginMessage').textContent='Ingresando…';const {error}=await db.auth.signInWithPassword({email:$('#loginEmail').value,password:$('#loginPassword').value});if(error){$('#loginMessage').textContent='No se pudo ingresar: '+error.message;return}await verifyAdmin(true)};
-async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.getUser();if(!user)return;const {data,error}=await db.from('admin_users').select('active').eq('user_id',user.id).maybeSingle();if(error||!data?.active){await db.auth.signOut();if(showError)$('#loginMessage').textContent='Este usuario no está autorizado como administrador.';return}$('#loginModal').classList.add('hidden');showAdmin();await Promise.all([loadOrders(),loadProducts(),loadCategories(),loadSettings()]);renderAll();subscribeOrdersRealtime();loadStaff()}
+async function verifyAdmin(showError=true){
+  const {data:{user}}=await db.auth.getUser();
+  if(!user){
+    $('#loginModal').classList.remove('hidden');
+    return;
+  }
+  const {data,error}=await db.from('admin_users').select('active').eq('user_id',user.id).maybeSingle();
+  if(error||!data?.active){
+    await db.auth.signOut();
+    $('#publicView').classList.add('hidden');
+    $('#adminView').classList.add('hidden');
+    $('.topbar').classList.add('hidden');
+    $('#loginModal').classList.remove('hidden');
+    if(showError)$('#loginMessage').textContent='Este usuario no está autorizado como administrador.';
+    return;
+  }
+  $('#loginModal').classList.add('hidden');
+  showAdmin();
+  await Promise.all([loadOrders(),loadProducts(),loadCategories(),loadSettings()]);
+  renderAll();
+  subscribeOrdersRealtime();
+  loadStaff();
+}
 function showAdmin(){$('#publicView').classList.add('hidden');$('.topbar').classList.add('hidden');$('#adminView').classList.remove('hidden')}
 function showStore(){$('#adminView').classList.add('hidden');$('#publicView').classList.remove('hidden');$('.topbar').classList.remove('hidden')}
-$('#backToStore').onclick=showStore;$('#logoutBtn').onclick=async()=>{await db.auth.signOut();showStore();toast('Sesión cerrada')};
+$('#backToStore').onclick=()=>location.href='/';
+$('#logoutBtn').onclick=async()=>{
+  await db.auth.signOut();
+  location.href='/';
+};
 $$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',shifts:'Turnos',staff:'Personal',finance:'Contabilidad',customers:'Clientes',promotions:'Promociones',pages:'Páginas',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff')await loadStaff();if(tab==='tables')await loadTables();if(tab==='shifts')await loadShifts();if(tab==='finance')await loadFinance();if(tab==='customers')await loadCustomers();if(tab==='promotions')await loadPromotions();if(tab==='pages')await loadContentPages()});
 function fillCategorySelect(){$('#pCategory').innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
 function resetProduct(){$('#productForm').reset();$('#pId').value='';$('#pActive').checked=true;$('#pSort').value=0;editingImage='';updatePreview('')}

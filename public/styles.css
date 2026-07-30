@@ -531,3 +531,46 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-s
     padding-bottom:9px !important;
   }
 }
+
+/* V13.3 — ACCESO ADMINISTRATIVO FINAL */
+.adminLoginVisible{
+  display:grid !important;
+  position:fixed;
+  inset:0;
+  z-index:5000;
+  background:
+    radial-gradient(circle at 20% 10%,rgba(255,196,0,.13),transparent 35%),
+    rgba(10,9,8,.94);
+  place-items:center;
+  padding:20px;
+}
+.adminLoginVisible.hidden{
+  display:none !important;
+}
+.adminLoginVisible .loginCard{
+  width:min(430px,100%);
+  border-radius:24px;
+  padding:30px;
+  box-shadow:0 30px 90px rgba(0,0,0,.55);
+}
+.adminLoginVisible .loginCard>img{
+  width:105px;
+  height:85px;
+  object-fit:contain;
+}
+.adminLoginVisible .loginCard h2{
+  margin:8px 0;
+  font-size:1.8rem;
+}
+.adminLoginVisible .loginCard form{
+  display:grid;
+  gap:10px;
+  margin-top:18px;
+}
+.adminLoginVisible .loginCard input{
+  width:100%;
+  padding:14px;
+  border:1px solid #ddd3c6;
+  border-radius:11px;
+  font-size:1rem;
+}
