@@ -78,7 +78,43 @@ async function deleteProduct(id){if(!confirm('¿Eliminar este producto?'))return
 function resetCategory(){$('#categoryForm').reset();$('#cId').value='';$('#cSort').value=0;$('#cActive').checked=true} $('#clearCategory').onclick=resetCategory;
 $('#categoryForm').onsubmit=async e=>{e.preventDefault();const id=$('#cId').value,row={name:$('#cName').value.trim(),sort_order:Number($('#cSort').value||0),active:$('#cActive').checked};const {error}=await(id?db.from('categories').update(row).eq('id',id):db.from('categories').insert(row));if(error)return toast(error.message);resetCategory();await loadCategories();renderAll();toast('Categoría guardada')};
 function renderAdminCategories(){$('#adminCategories').innerHTML=categories.map(c=>`<article class="adminRow"><div></div><div><b>${esc(c.name)}</b><small>Orden ${c.sort_order} · ${c.active?'Activa':'Oculta'}</small></div><button data-edit-cat="${c.id}">Editar</button><button class="danger" data-delete-cat="${c.id}">Eliminar</button></article>`).join('');$$('[data-edit-cat]').forEach(b=>b.onclick=()=>{const c=categories.find(x=>x.id===b.dataset.editCat);$('#cId').value=c.id;$('#cName').value=c.name;$('#cSort').value=c.sort_order;$('#cActive').checked=c.active});$$('[data-delete-cat]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Eliminar categoría? Los productos quedarán sin categoría.'))return;const {error}=await db.from('categories').delete().eq('id',b.dataset.deleteCat);if(error)return toast(error.message);await loadCategories();await loadProducts();renderAll()})}
-async function loadOrders(){const {data,error}=await db.from('orders').select('*,order_items(*),cashier:staff!orders_cashier_id_fkey(name),waiter:staff!orders_waiter_id_fkey(name),restaurant_tables(name)').order('created_at',{ascending:false}).limit(100);if(error)return toast('Error cargando pedidos');orders=data||[];renderOrders();renderMetrics();renderKitchen()}
+async function loadOrders(){
+  const {data,error}=await db.from('orders').select('*,order_items(*)').order('created_at',{ascending:false}).limit(100);
+  if(error){
+    console.error('Error cargando pedidos:',error);
+    return toast('Error cargando pedidos: '+error.message);
+  }
+
+  orders=data||[];
+
+  const staffIds=[...new Set(orders.flatMap(o=>[o.cashier_id,o.waiter_id]).filter(Boolean))];
+  const tableIds=[...new Set(orders.map(o=>o.table_id).filter(Boolean))];
+
+  let staffMap={},tableMap={};
+
+  if(staffIds.length){
+    const {data:staffData,error:staffError}=await db.from('staff').select('id,name').in('id',staffIds);
+    if(staffError)console.warn('No se pudieron cargar nombres del personal:',staffError);
+    else staffMap=Object.fromEntries((staffData||[]).map(s=>[s.id,s]));
+  }
+
+  if(tableIds.length){
+    const {data:tableData,error:tableError}=await db.from('restaurant_tables').select('id,name').in('id',tableIds);
+    if(tableError)console.warn('No se pudieron cargar nombres de mesas:',tableError);
+    else tableMap=Object.fromEntries((tableData||[]).map(t=>[t.id,t]));
+  }
+
+  orders=orders.map(o=>({
+    ...o,
+    cashier:o.cashier_id?staffMap[o.cashier_id]||null:null,
+    waiter:o.waiter_id?staffMap[o.waiter_id]||null:null,
+    restaurant_tables:o.table_id?tableMap[o.table_id]||null:null
+  }));
+
+  renderOrders();
+  renderMetrics();
+  renderKitchen();
+}
 const statusLabels={pending:'Pendiente',confirmed:'Confirmado',preparing:'Preparando',ready:'Listo',delivered:'Entregado',cancelled:'Cancelado'};
 function getFilteredOrders(){return orderStatusFilter==='all'?orders:orders.filter(o=>o.status===orderStatusFilter)}
 function renderOrders(){
