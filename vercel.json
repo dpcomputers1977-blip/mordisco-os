@@ -18,6 +18,22 @@
   ],
   "rewrites": [
     {
+      "source": "/staff",
+      "destination": "/staff.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/promociones",
+      "destination": "/promociones.html"
+    },
+    {
+      "source": "/pagina/:slug",
+      "destination": "/page.html"
+    },
+    {
       "source": "/comandas",
       "destination": "/comandas.html"
     },
