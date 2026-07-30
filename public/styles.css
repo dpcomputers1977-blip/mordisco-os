@@ -408,3 +408,126 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-s
 .pagePublicHero:before{content:"";position:absolute;inset:0;background:#0009}.pagePublicHero>div{position:relative;max-width:800px}.pagePublicHero h1{font-size:clamp(2.4rem,6vw,5rem);margin:0 0 18px}.pageContent{max-width:900px;margin:auto;padding:60px 24px;line-height:1.8;white-space:pre-wrap}
 @media(max-width:900px){.promotionGrid{grid-template-columns:1fr 1fr}.financeGrid,.customersGrid{grid-template-columns:1fr}}
 @media(max-width:600px){.promotionGrid{grid-template-columns:1fr}.privateAccess{opacity:.18}}
+
+/* V13.2 — CORRECCIÓN FINAL DEL MENÚ LATERAL */
+:root{
+  --sidebar-width:232px;
+}
+
+.adminShell,
+.dashboardShell,
+.appShell{
+  min-height:100vh;
+}
+
+.sidebar{
+  position:fixed !important;
+  top:0;
+  left:0;
+  bottom:0;
+  width:var(--sidebar-width) !important;
+  height:100vh !important;
+  min-height:100vh !important;
+  background:#11100f !important;
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  z-index:1000;
+}
+
+.sidebar .brand,
+.sidebarBrand{
+  flex:0 0 auto;
+}
+
+.sidebar nav,
+.sidebarMenu{
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  padding-bottom:14px !important;
+  scrollbar-width:thin;
+  scrollbar-color:#4a453f transparent;
+}
+
+.sidebar nav::-webkit-scrollbar,
+.sidebarMenu::-webkit-scrollbar{
+  width:5px;
+}
+.sidebar nav::-webkit-scrollbar-thumb,
+.sidebarMenu::-webkit-scrollbar-thumb{
+  background:#4a453f;
+  border-radius:999px;
+}
+
+.sidebarFooter,
+.sidebar .sidebarBottom{
+  flex:0 0 auto !important;
+  margin-top:auto !important;
+  position:relative !important;
+  bottom:auto !important;
+  left:auto !important;
+  right:auto !important;
+  width:100% !important;
+  background:#11100f !important;
+  border-top:1px solid rgba(255,255,255,.08);
+  padding:10px 14px 14px !important;
+}
+
+.sidebarFooter button,
+.sidebarFooter a,
+.sidebar .sidebarBottom button,
+.sidebar .sidebarBottom a,
+#logoutBtn{
+  width:100% !important;
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  justify-content:flex-start !important;
+  padding:12px 14px !important;
+  border-radius:11px !important;
+  color:#ffd7d2 !important;
+  background:rgba(255,255,255,.04) !important;
+  border:1px solid rgba(255,255,255,.08) !important;
+  font-weight:800 !important;
+  cursor:pointer;
+}
+
+.sidebarFooter button:hover,
+.sidebarFooter a:hover,
+#logoutBtn:hover{
+  background:rgba(198,54,43,.18) !important;
+  color:#fff !important;
+}
+
+.adminMain,
+.mainContent,
+.dashboardMain{
+  margin-left:var(--sidebar-width) !important;
+  min-height:100vh;
+}
+
+@media(max-width:850px){
+  .sidebar{
+    width:220px !important;
+    transform:translateX(-100%);
+    transition:transform .22s ease;
+  }
+  .sidebar.open{
+    transform:translateX(0);
+  }
+  .adminMain,
+  .mainContent,
+  .dashboardMain{
+    margin-left:0 !important;
+  }
+}
+
+@media(max-height:760px){
+  .sidebar nav button,
+  .sidebarMenu button{
+    padding-top:9px !important;
+    padding-bottom:9px !important;
+  }
+}
