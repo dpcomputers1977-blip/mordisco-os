@@ -2,7 +2,7 @@
 const SUPABASE_URL='https://nmmjthqflxwucpmmmrks.supabase.co';
 const SUPABASE_KEY='sb_publishable_izCztp4wZ0MzKOHjT2KGYA_ot_3pgb0';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
+let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
@@ -32,7 +32,7 @@ async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.get
 function showAdmin(){$('#publicView').classList.add('hidden');$('.topbar').classList.add('hidden');$('#adminView').classList.remove('hidden')}
 function showStore(){$('#adminView').classList.add('hidden');$('#publicView').classList.remove('hidden');$('.topbar').classList.remove('hidden')}
 $('#backToStore').onclick=showStore;$('#logoutBtn').onclick=async()=>{await db.auth.signOut();showStore();toast('Sesión cerrada')};
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}});
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData()});
 function fillCategorySelect(){$('#pCategory').innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
 function resetProduct(){$('#productForm').reset();$('#pId').value='';$('#pActive').checked=true;$('#pSort').value=0;editingImage='';updatePreview('')}
 function updatePreview(src){$('#pPreview').src=src||'';$('#pPreview').classList.toggle('hidden',!src);$('#pNoImage').classList.toggle('hidden',!!src);$('#removeProductImage').classList.toggle('hidden',!src)}
@@ -344,6 +344,146 @@ $('#posReceived').oninput=updatePosChange;
 $('#posClear').onclick=()=>{if(!posCart.length||confirm('¿Vaciar la venta actual?'))resetPosSale()};
 $('#posCharge').onclick=completePosSale;
 $('#printReceipt').onclick=()=>window.print();
+
+
+async function loadInventoryData(){
+  const [ingRes,movRes,recRes]=await Promise.all([
+    db.from('ingredients').select('*').order('name'),
+    db.from('inventory_movements').select('*,ingredients(name,unit)').order('created_at',{ascending:false}).limit(100),
+    db.from('product_recipes').select('*,ingredients(name,unit,cost_per_unit),products(name)').order('created_at')
+  ]);
+  if(ingRes.error)return toast('Primero ejecuta el SQL de Inventario en Supabase');
+  ingredients=ingRes.data||[];
+  inventoryMovements=movRes.data||[];
+  recipes=recRes.data||[];
+  fillInventorySelects();
+  renderIngredientList();
+  renderMovementList();
+  renderRecipeList();
+  renderInventorySummary();
+}
+function renderInventorySummary(){
+  if(!$('#inventoryTotalCount'))return;
+  const active=ingredients.filter(i=>i.active);
+  const low=active.filter(i=>Number(i.current_stock)<=Number(i.minimum_stock));
+  const value=active.reduce((sum,i)=>sum+Number(i.current_stock)*Number(i.cost_per_unit),0);
+  $('#inventoryTotalCount').textContent=active.length;
+  $('#inventoryLowCount').textContent=low.length;
+  $('#inventoryValue').textContent=money(value);
+}
+function fillInventorySelects(){
+  const ingredientOptions=ingredients.filter(i=>i.active).map(i=>`<option value="${i.id}">${esc(i.name)} (${esc(i.unit)})</option>`).join('');
+  $('#movementIngredient').innerHTML=ingredientOptions;
+  $('#recipeIngredient').innerHTML=ingredientOptions;
+  const productOptions=products.filter(p=>p.active).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  $('#recipeProduct').innerHTML=productOptions;
+  const current=$('#recipeProductFilter').value||'all';
+  $('#recipeProductFilter').innerHTML='<option value="all">Todos los productos</option>'+productOptions;
+  $('#recipeProductFilter').value=[...$('#recipeProductFilter').options].some(o=>o.value===current)?current:'all';
+}
+function resetIngredientForm(){
+  $('#ingredientForm').reset();
+  $('#ingredientId').value='';
+  $('#ingredientActive').checked=true;
+  $('#ingredientCost').value='0';
+  $('#ingredientStock').value='0';
+  $('#ingredientMinimum').value='0';
+}
+function renderIngredientList(){
+  if(!$('#ingredientList'))return;
+  const q=($('#ingredientSearch').value||'').trim().toLowerCase();
+  const list=ingredients.filter(i=>i.name.toLowerCase().includes(q));
+  $('#ingredientList').innerHTML=list.length?list.map(i=>{
+    const low=Number(i.current_stock)<=Number(i.minimum_stock);
+    return `<article class="ingredientRow ${low?'lowStock':''}">
+      <div class="ingredientName"><b>${esc(i.name)}</b><small>${i.active?'Activo':'Inactivo'} · ${esc(i.unit)}</small></div>
+      <div><span class="stockBadge ${low?'low':''}">${Number(i.current_stock).toLocaleString('es-EC')} ${esc(i.unit)}</span><small>${low?' Stock bajo':' Disponible'}</small></div>
+      <div class="ingredientValue"><b>${money(Number(i.current_stock)*Number(i.cost_per_unit))}</b><small>${money(i.cost_per_unit)} / ${esc(i.unit)}</small></div>
+      <div class="rowActions"><button class="dark" data-edit-ingredient="${i.id}">Editar</button><button class="danger" data-delete-ingredient="${i.id}">Eliminar</button></div>
+    </article>`;
+  }).join(''):'<div class="inventoryEmpty">No hay ingredientes registrados.</div>';
+  $$('[data-edit-ingredient]').forEach(b=>b.onclick=()=>editIngredient(b.dataset.editIngredient));
+  $$('[data-delete-ingredient]').forEach(b=>b.onclick=()=>deleteIngredient(b.dataset.deleteIngredient));
+}
+function editIngredient(id){
+  const i=ingredients.find(x=>String(x.id)===String(id));if(!i)return;
+  $('#ingredientId').value=i.id;$('#ingredientName').value=i.name;$('#ingredientUnit').value=i.unit;
+  $('#ingredientCost').value=i.cost_per_unit;$('#ingredientStock').value=i.current_stock;
+  $('#ingredientMinimum').value=i.minimum_stock;$('#ingredientActive').checked=i.active;
+  $('#ingredientName').focus();
+}
+async function deleteIngredient(id){
+  if(!confirm('¿Eliminar este ingrediente? También se eliminará de las recetas.'))return;
+  const {error}=await db.from('ingredients').delete().eq('id',id);
+  if(error)return toast(error.message);
+  toast('Ingrediente eliminado');await loadInventoryData();
+}
+$('#ingredientForm').onsubmit=async e=>{
+  e.preventDefault();
+  const id=$('#ingredientId').value;
+  const payload={name:$('#ingredientName').value.trim(),unit:$('#ingredientUnit').value,cost_per_unit:Number($('#ingredientCost').value||0),current_stock:Number($('#ingredientStock').value||0),minimum_stock:Number($('#ingredientMinimum').value||0),active:$('#ingredientActive').checked};
+  const res=id?await db.from('ingredients').update(payload).eq('id',id):await db.from('ingredients').insert(payload);
+  if(res.error)return toast(res.error.message);
+  toast(id?'Ingrediente actualizado':'Ingrediente creado');resetIngredientForm();await loadInventoryData();
+};
+$('#clearIngredient').onclick=resetIngredientForm;
+$('#ingredientSearch').oninput=renderIngredientList;
+
+function movementTypeLabel(type){return({purchase:'Compra',adjustment_in:'Ajuste entrada',waste:'Merma',adjustment_out:'Ajuste salida',sale:'Venta'})[type]||type}
+function movementIsIn(type){return ['purchase','adjustment_in'].includes(type)}
+function renderMovementList(){
+  if(!$('#movementList'))return;
+  $('#movementList').innerHTML=inventoryMovements.length?inventoryMovements.map(m=>{
+    const incoming=Number(m.quantity)>0;
+    return `<article class="movementRow"><div><h4>${esc(m.ingredients?.name||'Ingrediente eliminado')}</h4><p>${movementTypeLabel(m.movement_type)} · ${new Date(m.created_at).toLocaleString('es-EC')}${m.supplier?` · ${esc(m.supplier)}`:''}${m.note?` · ${esc(m.note)}`:''}</p></div><div class="movementAmount ${incoming?'in':'out'}">${incoming?'+':''}${Number(m.quantity).toLocaleString('es-EC')} ${esc(m.ingredients?.unit||'')}</div></article>`;
+  }).join(''):'<div class="inventoryEmpty">Todavía no hay movimientos.</div>';
+}
+$('#movementForm').onsubmit=async e=>{
+  e.preventDefault();
+  const type=$('#movementType').value;
+  const raw=Number($('#movementQuantity').value||0);
+  const quantity=movementIsIn(type)?raw:-raw;
+  const payload={ingredient_id:$('#movementIngredient').value,movement_type:type,quantity,unit_cost:Number($('#movementUnitCost').value||0),supplier:$('#movementSupplier').value.trim(),note:$('#movementNote').value.trim()};
+  const {error}=await db.rpc('register_inventory_movement',payload);
+  if(error)return toast(error.message);
+  $('#movementForm').reset();$('#movementUnitCost').value='0';
+  toast('Movimiento registrado');await loadInventoryData();
+};
+$('#refreshMovements').onclick=loadInventoryData;
+
+function renderRecipeList(){
+  if(!$('#recipeList'))return;
+  const filter=$('#recipeProductFilter').value||'all';
+  const list=filter==='all'?recipes:recipes.filter(r=>String(r.product_id)===String(filter));
+  const grouped={};
+  list.forEach(r=>{(grouped[r.product_id]??=[]).push(r)});
+  const cards=Object.values(grouped).map(group=>{
+    const productName=group[0].products?.name||'Producto';
+    const recipeCost=group.reduce((sum,r)=>sum+Number(r.quantity)*Number(r.ingredients?.cost_per_unit||0),0);
+    return `<article class="recipeCard"><header class="recipeCardHead"><h4>${esc(productName)}</h4><b>Costo: ${money(recipeCost)}</b></header><div class="recipeItems">${group.map(r=>`<div class="recipeItem"><span>${esc(r.ingredients?.name||'Ingrediente')}</span><b>${Number(r.quantity).toLocaleString('es-EC')} ${esc(r.ingredients?.unit||'')}</b><button class="danger" data-delete-recipe="${r.id}">Quitar</button></div>`).join('')}</div></article>`;
+  });
+  $('#recipeList').innerHTML=cards.length?cards.join(''):'<div class="inventoryEmpty">No hay recetas configuradas para esta selección.</div>';
+  $$('[data-delete-recipe]').forEach(b=>b.onclick=()=>deleteRecipe(b.dataset.deleteRecipe));
+}
+$('#recipeForm').onsubmit=async e=>{
+  e.preventDefault();
+  const payload={product_id:$('#recipeProduct').value,ingredient_id:$('#recipeIngredient').value,quantity:Number($('#recipeQuantity').value||0)};
+  const {error}=await db.from('product_recipes').upsert(payload,{onConflict:'product_id,ingredient_id'});
+  if(error)return toast(error.message);
+  $('#recipeQuantity').value='';
+  toast('Receta actualizada');await loadInventoryData();
+};
+async function deleteRecipe(id){
+  const {error}=await db.from('product_recipes').delete().eq('id',id);
+  if(error)return toast(error.message);
+  toast('Ingrediente quitado de la receta');await loadInventoryData();
+}
+$('#recipeProductFilter').onchange=renderRecipeList;
+$$('[data-inventory-view]').forEach(b=>b.onclick=()=>{
+  $$('[data-inventory-view]').forEach(x=>x.classList.toggle('active',x===b));
+  $$('.inventoryView').forEach(x=>x.classList.add('hidden'));
+  $('#inventoryView'+b.dataset.inventoryView.charAt(0).toUpperCase()+b.dataset.inventoryView.slice(1)).classList.remove('hidden');
+});
 
 function fillSettings(){$('#sName').value=settings.business_name||'';$('#sWhatsapp').value=settings.whatsapp||'';$('#sDescription').value=settings.description||'';$('#sAddress').value=settings.address||'';$('#sSchedule').value=settings.schedule||'';$('#sDelivery').value=settings.delivery_cost||0;$('#sMinimum').value=settings.minimum_order||0;$('#sAccepting').checked=settings.accepting_orders!==false}
 $('#settingsForm').onsubmit=async e=>{e.preventDefault();const row={id:1,business_name:$('#sName').value,whatsapp:$('#sWhatsapp').value,description:$('#sDescription').value,address:$('#sAddress').value,schedule:$('#sSchedule').value,delivery_cost:Number($('#sDelivery').value||0),minimum_order:Number($('#sMinimum').value||0),accepting_orders:$('#sAccepting').checked};const {error}=await db.from('business_settings').upsert(row);if(error)return toast(error.message);settings=row;applySettings();toast('Configuración guardada en la nube')};

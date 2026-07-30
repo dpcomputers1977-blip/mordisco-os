@@ -36,7 +36,7 @@
 </main>
 
 <section id="adminView" class="hidden adminShell">
- <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard">Resumen</button><button data-tab="products" class="active">Productos</button><button data-tab="categories">Categorías</button><button data-tab="orders">Pedidos</button><button data-tab="kitchen">Cocina</button><button data-tab="pos">POS / Caja</button><button data-tab="settings">Negocio</button><button id="logoutBtn">Cerrar sesión</button><button id="backToStore">Ver página</button></aside>
+ <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard">Resumen</button><button data-tab="products" class="active">Productos</button><button data-tab="categories">Categorías</button><button data-tab="orders">Pedidos</button><button data-tab="kitchen">Cocina</button><button data-tab="pos">POS / Caja</button><button data-tab="inventory">Inventario</button><button data-tab="settings">Negocio</button><button id="logoutBtn">Cerrar sesión</button><button id="backToStore">Ver página</button></aside>
  <div class="adminContent">
    <div class="adminTop"><div><span class="eyebrow">MORDISCO OS CLOUD</span><h1 id="adminTitle">Productos</h1></div><span class="cloudStatus">● Conectado a Supabase</span></div>
    <section id="tab-dashboard" class="tab hidden">
@@ -181,6 +181,114 @@
 
           <button class="primary posChargeBtn" id="posCharge">Cobrar y enviar a cocina</button>
         </aside>
+      </div>
+    </section>
+
+
+   <section id="tab-inventory" class="tab hidden">
+      <div class="inventoryHeader">
+        <div>
+          <h2>Inventario</h2>
+          <p>Controla ingredientes, stock, compras y recetas de tus productos.</p>
+        </div>
+        <div class="inventorySummary">
+          <div><span>Ingredientes</span><strong id="inventoryTotalCount">0</strong></div>
+          <div><span>Stock bajo</span><strong id="inventoryLowCount">0</strong></div>
+          <div><span>Valor estimado</span><strong id="inventoryValue">$0.00</strong></div>
+        </div>
+      </div>
+
+      <div class="inventoryTabs">
+        <button class="active" data-inventory-view="ingredients">Ingredientes</button>
+        <button data-inventory-view="movements">Entradas y salidas</button>
+        <button data-inventory-view="recipes">Recetas</button>
+      </div>
+
+      <div id="inventoryViewIngredients" class="inventoryView">
+        <div class="inventoryGrid">
+          <form id="ingredientForm" class="panel formGrid">
+            <input id="ingredientId" type="hidden">
+            <h3 class="wide">Nuevo ingrediente</h3>
+            <label class="wide">Nombre<input id="ingredientName" required placeholder="Ej. Carne de hamburguesa"></label>
+            <label>Unidad
+              <select id="ingredientUnit">
+                <option value="unidad">Unidad</option>
+                <option value="g">Gramos (g)</option>
+                <option value="kg">Kilogramos (kg)</option>
+                <option value="ml">Mililitros (ml)</option>
+                <option value="l">Litros (L)</option>
+                <option value="porción">Porción</option>
+              </select>
+            </label>
+            <label>Costo por unidad<input id="ingredientCost" type="number" min="0" step="0.0001" value="0"></label>
+            <label>Stock actual<input id="ingredientStock" type="number" min="0" step="0.001" value="0"></label>
+            <label>Stock mínimo<input id="ingredientMinimum" type="number" min="0" step="0.001" value="0"></label>
+            <label class="check wide"><input id="ingredientActive" type="checkbox" checked> Ingrediente activo</label>
+            <div class="wide formActions">
+              <button class="primary">Guardar ingrediente</button>
+              <button type="button" class="dark" id="clearIngredient">Limpiar</button>
+            </div>
+          </form>
+
+          <section class="panel inventoryListPanel">
+            <div class="panelToolbar">
+              <div>
+                <h3>Ingredientes registrados</h3>
+                <small>Los resaltados necesitan reposición.</small>
+              </div>
+              <input id="ingredientSearch" placeholder="Buscar ingrediente...">
+            </div>
+            <div id="ingredientList" class="ingredientList"></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="inventoryViewMovements" class="inventoryView hidden">
+        <div class="inventoryGrid">
+          <form id="movementForm" class="panel formGrid">
+            <h3 class="wide">Registrar movimiento</h3>
+            <label class="wide">Ingrediente<select id="movementIngredient" required></select></label>
+            <label>Tipo
+              <select id="movementType">
+                <option value="purchase">Compra / entrada</option>
+                <option value="adjustment_in">Ajuste de entrada</option>
+                <option value="waste">Merma / desperdicio</option>
+                <option value="adjustment_out">Ajuste de salida</option>
+              </select>
+            </label>
+            <label>Cantidad<input id="movementQuantity" required type="number" min="0.001" step="0.001"></label>
+            <label>Costo unitario<input id="movementUnitCost" type="number" min="0" step="0.0001" value="0"></label>
+            <label>Proveedor<input id="movementSupplier" placeholder="Opcional"></label>
+            <label class="wide">Nota<textarea id="movementNote" placeholder="Factura, motivo del ajuste, etc."></textarea></label>
+            <div class="wide"><button class="primary">Registrar y actualizar stock</button></div>
+          </form>
+
+          <section class="panel inventoryListPanel">
+            <div class="panelToolbar"><div><h3>Historial de movimientos</h3><small>Últimos movimientos registrados.</small></div><button class="dark" id="refreshMovements">Actualizar</button></div>
+            <div id="movementList" class="movementList"></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="inventoryViewRecipes" class="inventoryView hidden">
+        <div class="inventoryGrid">
+          <form id="recipeForm" class="panel formGrid">
+            <h3 class="wide">Agregar ingrediente a una receta</h3>
+            <label class="wide">Producto<select id="recipeProduct" required></select></label>
+            <label class="wide">Ingrediente<select id="recipeIngredient" required></select></label>
+            <label class="wide">Cantidad consumida por producto<input id="recipeQuantity" required type="number" min="0.001" step="0.001"></label>
+            <div class="wide"><button class="primary">Guardar en receta</button></div>
+            <p class="wide helperText">Ejemplo: para 150 gramos de carne, selecciona gramos y registra 150.</p>
+          </form>
+
+          <section class="panel inventoryListPanel">
+            <div class="panelToolbar">
+              <div><h3>Recetas configuradas</h3><small>El inventario se descuenta al registrar una venta.</small></div>
+              <select id="recipeProductFilter"></select>
+            </div>
+            <div id="recipeList" class="recipeList"></div>
+          </section>
+        </div>
       </div>
     </section>
 

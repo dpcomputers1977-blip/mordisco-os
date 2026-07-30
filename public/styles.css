@@ -88,3 +88,33 @@
  #receiptContent,#receiptContent *{visibility:visible!important}
  #receiptContent{position:absolute;left:0;top:0;width:80mm;padding:5mm}
 }
+
+/* INVENTARIO */
+.inventoryHeader{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:16px}
+.inventoryHeader h2{font-size:1.8rem;margin:0 0 5px}.inventoryHeader p{margin:0;color:var(--muted)}
+.inventorySummary{display:grid;grid-template-columns:repeat(3,minmax(120px,1fr));gap:9px}
+.inventorySummary div{background:#111;color:#fff;border-radius:13px;padding:10px 13px}
+.inventorySummary span{display:block;font-size:.76rem;opacity:.72}.inventorySummary strong{display:block;color:var(--gold);font-size:1.25rem;margin-top:3px}
+.inventoryTabs{display:flex;gap:8px;margin-bottom:15px;flex-wrap:wrap}
+.inventoryTabs button{background:#e8e1d7}.inventoryTabs button.active{background:var(--gold);color:#111}
+.inventoryGrid{display:grid;grid-template-columns:minmax(300px,.72fr) minmax(0,1.4fr);gap:16px;align-items:start}
+.inventoryListPanel{min-height:520px}.panelToolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.panelToolbar h3{margin:0 0 3px}.panelToolbar small{color:var(--muted)}.panelToolbar input,.panelToolbar select{max-width:260px}
+.ingredientList,.movementList,.recipeList{display:grid;gap:9px}
+.ingredientRow{display:grid;grid-template-columns:minmax(0,1.3fr) .7fr .7fr auto;align-items:center;gap:10px;border:1px solid #e6ddd0;border-radius:12px;padding:11px;background:#fff}
+.ingredientRow.lowStock{border-color:#d24737;background:#fff5f2}
+.ingredientName b{display:block}.ingredientName small{color:var(--muted)}
+.stockBadge{font-weight:900}.stockBadge.low{color:#b42318}.ingredientValue{text-align:right}
+.rowActions{display:flex;gap:5px;flex-wrap:wrap}.rowActions button{padding:7px 9px;font-size:.78rem}
+.movementRow{display:grid;grid-template-columns:1fr auto;gap:8px;padding:11px;border-bottom:1px solid #eee4d8}
+.movementRow h4{margin:0 0 3px}.movementRow p{margin:0;color:var(--muted);font-size:.84rem}
+.movementAmount{text-align:right;font-weight:900}.movementAmount.in{color:#147a38}.movementAmount.out{color:#b42318}
+.recipeCard{border:1px solid #e6ddd0;border-radius:12px;background:#fff;overflow:hidden}
+.recipeCardHead{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:#f4efe7}
+.recipeCardHead h4{margin:0}.recipeItems{padding:8px 13px}
+.recipeItem{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #eee8df}
+.recipeItem:last-child{border-bottom:0}.recipeCost{color:var(--muted);font-size:.84rem}
+.helperText{background:#fff7d9;padding:10px;border-radius:9px;color:#6f5510}
+.inventoryEmpty{text-align:center;color:var(--muted);padding:35px 10px;font-weight:800}
+@media(max-width:1050px){.inventoryHeader{align-items:flex-start;flex-direction:column}.inventorySummary{width:100%}.inventoryGrid{grid-template-columns:1fr}}
+@media(max-width:650px){.inventorySummary{grid-template-columns:1fr}.panelToolbar{align-items:flex-start;flex-direction:column}.panelToolbar input,.panelToolbar select{max-width:none;width:100%}.ingredientRow{grid-template-columns:1fr 1fr}.rowActions{grid-column:1/-1}.ingredientValue{text-align:left}}
