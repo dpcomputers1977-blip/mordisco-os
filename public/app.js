@@ -8,12 +8,48 @@ const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 function esc(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 async function init(){
+  const params=new URLSearchParams(location.search);
+  const employeeMode=params.get('employee')==='1';
+  const requestedTab=params.get('tab');
+
   try{
     await Promise.all([loadCategories(),loadProducts(),loadSettings()]);
     renderAll();
   }catch(error){
     console.warn('Carga inicial:',error);
   }
+
+  if(employeeMode){
+    let savedEmployee=null;
+    try{savedEmployee=JSON.parse(localStorage.getItem('mordisco_employee')||'null')}catch{}
+    if(!savedEmployee?.id||!savedEmployee?.role){
+      location.href='/staff';
+      return;
+    }
+
+    currentEmployee=savedEmployee;
+    $('#loginModal').classList.add('hidden');
+    showAdmin();
+
+    await Promise.all([loadOrders(),loadStaff()]);
+    renderAll();
+    applyEmployeePermissions(savedEmployee);
+
+    const allowed={
+      waiter:['tables','orders'],
+      cashier:['pos','orders','tables','shifts'],
+      kitchen:['kitchen'],
+      admin:['dashboard','products','categories','orders','kitchen','pos','inventory','tables','shifts','finance','customers','promotions','pages','staff','settings']
+    }[savedEmployee.role]||[];
+
+    const target=allowed.includes(requestedTab)?requestedTab:allowed[0];
+    const targetButton=$(`.sidebar [data-tab="${target}"]`);
+    if(targetButton)targetButton.click();
+
+    subscribeOrdersRealtime();
+    return;
+  }
+
   const {data:{session}}=await db.auth.getSession();
   if(session){
     await verifyAdmin(false);
@@ -31,7 +67,7 @@ function applySettings(){$('#businessDescription').textContent=settings.descript
 function renderAll(){renderFilters();renderProducts();renderCart();renderAdminProducts();renderAdminCategories();fillCategorySelect();fillSettings();fillPosCategories();renderPosProducts();renderPosCart();fillPosStaff();renderHomePromotions()}
 function renderFilters(){const names=['Todos',...categories.filter(c=>c.active).map(c=>c.name)];$('#categoryFilters').innerHTML=names.map(n=>`<button class="${n===selectedCategory?'active':''}" data-cat="${esc(n)}">${esc(n)}</button>`).join('');$$('[data-cat]').forEach(b=>b.onclick=()=>{selectedCategory=b.dataset.cat;renderFilters();renderProducts()})}
 function filteredProducts(){const q=$('#searchInput').value.toLowerCase();return products.filter(p=>p.active&&(selectedCategory==='Todos'||p.categories?.name===selectedCategory)&&(`${p.name} ${p.description||''}`).toLowerCase().includes(q))}
-function renderProducts(){const list=filteredProducts();$('#productGrid').innerHTML=list.length?list.map(p=>`<article class="productCard">${p.featured?'<span class="featured">Favorito</span>':''}<div class="productImage">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="noImage">Sin imagen</div>'}</div><div class="productBody"><small>${esc(p.categories?.name||'Sin categoría')}</small><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="productFoot"><strong>${money(p.price)}</strong><button data-add="${p.id}">+ Agregar</button></div></div></article>`).join(''):'<div class="notice">No hay productos disponibles.</div>';$$('[data-add]').forEach(b=>b.onclick=()=>addCart(b.dataset.add))}
+function renderProducts(){const list=filteredProducts();$('#productGrid').innerHTML=list.length?list.map(p=>`<article class="productCard">${p.featured?'<span class="featured">Favorito</span>':''}<div class="productImage">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="noImage">Sin imagen</div>'}</div><div class="productBody"><small>${esc(p.categories?.name||'Sin categoría')}</small><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="productFoot"><strong>${money(p.price)}</strong><button data-add="${p.id}">+ Agregar</button></div></div>${!currentEmployee||currentEmployee.role==='admin'?`<div class="orderDeleteArea"><button class="danger deleteSaleBtn" data-delete-order="${o.id}">Eliminar venta</button></div>`:''}</article>`).join(''):'<div class="notice">No hay productos disponibles.</div>';$$('[data-add]').forEach(b=>b.onclick=()=>addCart(b.dataset.add))}
 $('#searchInput').oninput=renderProducts;
 function addCart(id){const f=cart.find(x=>x.id===id);if(f)f.qty++;else cart.push({id,qty:1});renderCart();openCart()}
 function changeQty(id,d){const f=cart.find(x=>x.id===id);if(!f)return;f.qty+=d;cart=cart.filter(x=>x.qty>0);renderCart()}
@@ -78,6 +114,12 @@ function showAdmin(){$('#publicView').classList.add('hidden');$('.topbar').class
 function showStore(){$('#adminView').classList.add('hidden');$('#publicView').classList.remove('hidden');$('.topbar').classList.remove('hidden')}
 $('#backToStore').onclick=()=>location.href='/';
 $('#logoutBtn').onclick=async()=>{
+  if(currentEmployee){
+    localStorage.removeItem('mordisco_employee');
+    currentEmployee=null;
+    location.href='/staff';
+    return;
+  }
   await db.auth.signOut();
   location.href='/';
 };
@@ -127,6 +169,34 @@ async function deleteProduct(id){if(!confirm('¿Eliminar este producto?'))return
 function resetCategory(){$('#categoryForm').reset();$('#cId').value='';$('#cSort').value=0;$('#cActive').checked=true} $('#clearCategory').onclick=resetCategory;
 $('#categoryForm').onsubmit=async e=>{e.preventDefault();const id=$('#cId').value,row={name:$('#cName').value.trim(),sort_order:Number($('#cSort').value||0),active:$('#cActive').checked};const {error}=await(id?db.from('categories').update(row).eq('id',id):db.from('categories').insert(row));if(error)return toast(error.message);resetCategory();await loadCategories();renderAll();toast('Categoría guardada')};
 function renderAdminCategories(){$('#adminCategories').innerHTML=categories.map(c=>`<article class="adminRow"><div></div><div><b>${esc(c.name)}</b><small>Orden ${c.sort_order} · ${c.active?'Activa':'Oculta'}</small></div><button data-edit-cat="${c.id}">Editar</button><button class="danger" data-delete-cat="${c.id}">Eliminar</button></article>`).join('');$$('[data-edit-cat]').forEach(b=>b.onclick=()=>{const c=categories.find(x=>x.id===b.dataset.editCat);$('#cId').value=c.id;$('#cName').value=c.name;$('#cSort').value=c.sort_order;$('#cActive').checked=c.active});$$('[data-delete-cat]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Eliminar categoría? Los productos quedarán sin categoría.'))return;const {error}=await db.from('categories').delete().eq('id',b.dataset.deleteCat);if(error)return toast(error.message);await loadCategories();await loadProducts();renderAll()})}
+
+async function deleteSale(orderId){
+  if(currentEmployee && currentEmployee.role!=='admin'){
+    return toast('Solo el administrador puede eliminar ventas');
+  }
+
+  const order=orders.find(o=>String(o.id)===String(orderId));
+  if(!order)return toast('No se encontró la venta');
+
+  const accepted=confirm(
+    `¿Eliminar definitivamente la venta #${order.order_number||order.id}?\n\n`+
+    `Total: ${money(order.total)}\n`+
+    `Cliente: ${order.customer_name||'Sin cliente'}\n\n`+
+    `Esta acción no se puede deshacer.`
+  );
+  if(!accepted)return;
+
+  const {error:itemError}=await db.from('order_items').delete().eq('order_id',orderId);
+  if(itemError)return toast('No se pudieron eliminar los productos de la venta: '+itemError.message);
+
+  const {error:orderError}=await db.from('orders').delete().eq('id',orderId);
+  if(orderError)return toast('No se pudo eliminar la venta: '+orderError.message);
+
+  toast('Venta eliminada correctamente');
+  await loadOrders();
+  if(typeof loadShifts==='function')await loadShifts();
+}
+
 async function loadOrders(){
   const {data,error}=await db.from('orders').select('*,order_items(*)').order('created_at',{ascending:false}).limit(100);
   if(error){
@@ -170,6 +240,7 @@ function renderOrders(){
   const list=getFilteredOrders();
   $('#adminOrders').innerHTML=list.length?list.map(o=>`<article class="orderCard"><small>Pedido #${o.order_number}</small><h3>${esc(o.customer_name)}</h3><p>${o.order_items?.map(i=>`${i.quantity}× ${esc(i.product_name)}`).join(', ')||''}</p><p>${esc(o.customer_phone)} · ${esc(o.order_type)}</p><strong>${money(o.total)}</strong><p>${new Date(o.created_at).toLocaleString('es-EC')}</p><select data-status="${o.id}">${Object.entries(statusLabels).map(([value,label])=>`<option ${value===o.status?'selected':''} value="${value}">${label}</option>`).join('')}</select></article>`).join(''):'<div class="notice">No hay pedidos con ese estado.</div>';
   $$('[data-status]').forEach(s=>s.onchange=async()=>{
+  $$('[data-delete-order]').forEach(b=>b.onclick=()=>deleteSale(b.dataset.deleteOrder));
     const {error}=await db.from('orders').update({status:s.value}).eq('id',s.dataset.status);
     if(error)toast(error.message);else{toast('Estado actualizado');await loadOrders()}
   });
@@ -739,10 +810,11 @@ function renderStaff(){
   $('#staffList').innerHTML=list.length?list.map(s=>`<article class="staffCard ${s.active?'':'staffInactive'}">
     <div class="staffIdentity"><div class="staffAvatar">${staffRoleIcon(s.role)}</div><div><h4>${esc(s.name)}</h4><p>${esc(s.phone||'Sin teléfono')} · ${s.active?'Activo':'Inactivo'}</p></div></div>
     <span class="staffRoleBadge ${s.role}">${staffRoleLabel(s.role)}</span>
-    <div class="staffActions"><button class="dark" data-edit-staff="${s.id}">Editar</button><button class="${s.active?'danger':'success'}" data-toggle-staff="${s.id}" data-active="${s.active}">${s.active?'Desactivar':'Activar'}</button></div>
+    <div class="staffActions"><button class="dark" data-edit-staff="${s.id}">Editar</button><button class="${s.active?'warning':'success'}" data-toggle-staff="${s.id}" data-active="${s.active}">${s.active?'Desactivar':'Activar'}</button><button class="danger" data-delete-staff="${s.id}">Eliminar</button></div>
   </article>`).join(''):'<div class="inventoryEmpty">No hay empleados registrados.</div>';
   $$('[data-edit-staff]').forEach(b=>b.onclick=()=>editStaff(b.dataset.editStaff));
   $$('[data-toggle-staff]').forEach(b=>b.onclick=()=>toggleStaff(b.dataset.toggleStaff,b.dataset.active==='true'));
+  $$('[data-delete-staff]').forEach(b=>b.onclick=()=>deleteStaff(b.dataset.deleteStaff));
 }
 function fillPosStaff(){
   if(!$('#posCashier')||!$('#posWaiter'))return;
@@ -767,6 +839,20 @@ async function toggleStaff(id,isActive){
   const {error}=await db.from('staff').update({active:!isActive,updated_at:new Date().toISOString()}).eq('id',id);
   if(error)return toast(error.message);
   toast(isActive?'Empleado desactivado':'Empleado activado');await loadStaff();
+}
+async function deleteStaff(id){
+  const employee=staffMembers.find(s=>String(s.id)===String(id));
+  if(!employee)return;
+  if(currentEmployee&&String(currentEmployee.id)===String(id)){
+    return toast('No puedes eliminar al empleado que tiene la sesión abierta');
+  }
+  const accepted=confirm(`¿Eliminar definitivamente a ${employee.name}?\n\nSus ventas y pedidos anteriores se conservarán, pero ya no podrá iniciar sesión.`);
+  if(!accepted)return;
+  const {error}=await db.from('staff').delete().eq('id',id);
+  if(error)return toast('No se pudo eliminar: '+error.message);
+  if(String($('#staffId').value)===String(id))resetStaffForm();
+  toast('Empleado eliminado');
+  await loadStaff();
 }
 $('#staffForm').onsubmit=async e=>{
   e.preventDefault();
