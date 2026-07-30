@@ -118,3 +118,209 @@
 .inventoryEmpty{text-align:center;color:var(--muted);padding:35px 10px;font-weight:800}
 @media(max-width:1050px){.inventoryHeader{align-items:flex-start;flex-direction:column}.inventorySummary{width:100%}.inventoryGrid{grid-template-columns:1fr}}
 @media(max-width:650px){.inventorySummary{grid-template-columns:1fr}.panelToolbar{align-items:flex-start;flex-direction:column}.panelToolbar input,.panelToolbar select{max-width:none;width:100%}.ingredientRow{grid-template-columns:1fr 1fr}.rowActions{grid-column:1/-1}.ingredientValue{text-align:left}}
+
+
+/* =========================================================
+   MORDISCO OS V6 — REDISEÑO PROFESIONAL Y CORRECCIÓN DE CACHÉ
+   ========================================================= */
+:root{
+  --gold:#ffc400;
+  --yellow:#ffc400;
+  --black:#11100e;
+  --cream:#f5f1e9;
+  --surface:#ffffff;
+  --surface-soft:#f0ebe2;
+  --muted:#736b60;
+  --red:#c9362b;
+  --green:#16783b;
+  --line:#e3dbcf;
+  --shadow:0 14px 38px rgba(35,28,18,.08);
+  --shadow-soft:0 6px 20px rgba(35,28,18,.06);
+  --radius:18px;
+}
+body{background:linear-gradient(135deg,#f7f3ec 0%,#f1ece3 100%);min-height:100vh}
+button{transition:transform .15s ease,box-shadow .15s ease,filter .15s ease}
+button:hover{filter:brightness(.98)}
+button:active{transform:scale(.98)}
+input,select,textarea{outline:none;transition:border-color .15s ease,box-shadow .15s ease}
+input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-shadow:0 0 0 3px rgba(255,196,0,.18)}
+
+.adminShell{grid-template-columns:232px minmax(0,1fr);background:transparent}
+.sidebar{
+  background:linear-gradient(180deg,#111 0%,#171512 100%);
+  padding:22px 14px;
+  gap:6px;
+  box-shadow:10px 0 35px rgba(0,0,0,.08);
+  z-index:5;
+}
+.sidebar img{width:128px;margin:0 auto 28px;filter:drop-shadow(0 8px 14px rgba(255,196,0,.12))}
+.sidebar button{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  min-height:46px;
+  padding:11px 13px;
+  border:1px solid transparent;
+  border-radius:13px;
+  font-size:.94rem;
+}
+.sidebar button span{display:inline-grid;place-items:center;width:22px;font-size:1rem}
+.sidebar button:hover{background:#ffffff0e;border-color:#ffffff12}
+.sidebar button.active{
+  background:linear-gradient(135deg,#ffd21f,#ffbc00);
+  box-shadow:0 9px 22px rgba(255,196,0,.22);
+  color:#111;
+}
+#logoutBtn{margin-top:auto;color:#ffd9d5!important}
+#backToStore{border:1px solid #ffffff18!important}
+
+.adminContent{padding:28px clamp(20px,3vw,44px) 50px;max-width:1720px;width:100%;margin:auto}
+.adminTop{margin-bottom:24px;padding-bottom:18px;border-bottom:1px solid rgba(85,71,50,.1)}
+.adminTop h1{font-size:clamp(2.15rem,3vw,3.15rem);letter-spacing:-1.5px}
+.cloudStatus{background:#e8f8ec;border:1px solid #ccebd4;box-shadow:var(--shadow-soft)}
+
+.panel{
+  border:1px solid rgba(110,91,61,.09);
+  border-radius:20px;
+  box-shadow:var(--shadow);
+  padding:22px;
+}
+.primary{box-shadow:0 8px 18px rgba(255,196,0,.18)}
+.dark{background:linear-gradient(135deg,#252525,#151515)}
+.danger{background:linear-gradient(135deg,#c43b30,#96241c)}
+.success{background:linear-gradient(135deg,#218f4a,#126a34)!important}
+
+.metrics{gap:14px}
+.metrics article{
+  position:relative;
+  overflow:hidden;
+  min-height:124px;
+  border:1px solid rgba(98,79,48,.08);
+  box-shadow:var(--shadow-soft);
+}
+.metrics article:after{
+  content:"";
+  position:absolute;
+  right:-25px;
+  top:-30px;
+  width:95px;
+  height:95px;
+  border-radius:50%;
+  background:rgba(255,196,0,.10);
+}
+.metrics span{font-size:.86rem;font-weight:700}
+.metrics b{display:block;margin-top:8px;letter-spacing:-1px}
+
+.inventoryHeader{
+  background:linear-gradient(135deg,#171512 0%,#24201a 100%);
+  color:#fff;
+  padding:22px;
+  border-radius:22px;
+  box-shadow:var(--shadow);
+  margin-bottom:16px;
+}
+.inventoryHeader p{color:#cfc7bb}
+.inventorySummary{min-width:min(100%,520px)}
+.inventorySummary div{
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.11);
+  backdrop-filter:blur(8px);
+  min-height:76px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+.inventorySummary strong{color:var(--gold)!important;font-size:1.35rem}
+
+.inventoryTabs{
+  background:#e9e3d9;
+  width:max-content;
+  max-width:100%;
+  padding:5px;
+  border-radius:14px;
+  gap:4px;
+}
+.inventoryTabs button{
+  border:0;
+  border-radius:10px;
+  padding:10px 15px;
+  font-weight:850;
+  background:transparent;
+}
+.inventoryTabs button.active{
+  background:#fff;
+  color:#111;
+  box-shadow:0 5px 14px rgba(27,21,13,.09);
+}
+
+.inventoryGrid{grid-template-columns:minmax(330px,.78fr) minmax(480px,1.35fr);gap:18px}
+#ingredientForm,#movementForm,#recipeForm{
+  position:sticky;
+  top:18px;
+  border-top:5px solid var(--gold);
+}
+.formGrid h3{font-size:1.35rem;margin:0 0 4px}
+.formGrid label{font-size:.83rem;color:#2e2923}
+.formGrid input,.formGrid textarea,.formGrid select,.inlineForm input{
+  background:#fcfbf8;
+  border:1px solid #ded5c8;
+  min-height:44px;
+}
+.formActions{display:flex;gap:8px;flex-wrap:wrap}
+.inventoryListPanel{background:rgba(255,255,255,.9)}
+.panelToolbar{padding-bottom:13px;border-bottom:1px solid #eee6da}
+.panelToolbar h3{font-size:1.25rem}
+
+.ingredientRow{
+  border:1px solid #e7dfd3;
+  box-shadow:0 3px 10px rgba(31,24,15,.03);
+  transition:transform .14s ease,box-shadow .14s ease;
+}
+.ingredientRow:hover{transform:translateY(-1px);box-shadow:var(--shadow-soft)}
+.ingredientRow.lowStock{
+  border-left:5px solid #d24737;
+  background:linear-gradient(90deg,#fff2ef,#fff 35%);
+}
+.stockBadge{font-size:1.04rem}
+.rowActions button{border:0;border-radius:9px}
+
+.movementRow{border-radius:10px;border-bottom:0;background:#faf8f4}
+.recipeCard{box-shadow:0 5px 15px rgba(28,21,12,.04)}
+.recipeCardHead{background:linear-gradient(90deg,#f4efe7,#faf8f4)}
+
+.posHeader,.kitchenToolbar{background:#fff;padding:18px 20px;border-radius:20px;box-shadow:var(--shadow-soft)}
+.posCatalog,.posTicket,.kitchenColumn{border:1px solid rgba(90,72,46,.08)}
+.posProduct{box-shadow:0 5px 15px rgba(31,24,14,.04)}
+.kitchenColumn{background:#ebe5dc}
+.kitchenCard{border-radius:16px}
+
+.adminRow{border:1px solid rgba(100,80,50,.08);box-shadow:var(--shadow-soft)}
+.orderCard{border:1px solid rgba(100,80,50,.08);box-shadow:var(--shadow-soft)}
+.statusBadge{border:1px solid rgba(0,0,0,.04)}
+
+@media(max-width:1050px){
+  .inventoryGrid{grid-template-columns:1fr}
+  #ingredientForm,#movementForm,#recipeForm{position:static}
+}
+@media(max-width:800px){
+  .adminShell{display:block}
+  .sidebar{
+    height:auto;
+    position:sticky;
+    top:0;
+    padding:8px;
+    align-items:center;
+    z-index:50;
+  }
+  .sidebar img{width:58px;height:48px;margin:0 5px 0 0;flex:none}
+  .sidebar button{min-width:max-content;min-height:40px;padding:8px 11px}
+  #logoutBtn{margin-top:0}
+  .adminContent{padding:20px 14px 40px}
+}
+@media(max-width:600px){
+  .inventoryHeader{padding:18px}
+  .inventorySummary{grid-template-columns:1fr}
+  .inventoryTabs{width:100%}
+  .inventoryTabs button{flex:1}
+  .metrics{grid-template-columns:1fr 1fr}
+}

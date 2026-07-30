@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#11100e">
 <title>Mordisco Fast Food</title>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=6.0.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -36,7 +36,7 @@
 </main>
 
 <section id="adminView" class="hidden adminShell">
- <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard">Resumen</button><button data-tab="products" class="active">Productos</button><button data-tab="categories">Categorías</button><button data-tab="orders">Pedidos</button><button data-tab="kitchen">Cocina</button><button data-tab="pos">POS / Caja</button><button data-tab="inventory">Inventario</button><button data-tab="settings">Negocio</button><button id="logoutBtn">Cerrar sesión</button><button id="backToStore">Ver página</button></aside>
+ <aside class="sidebar"><img src="media/logo.png" alt="Mordisco"><button data-tab="dashboard"><span>▦</span> Resumen</button><button data-tab="products" class="active"><span>🍔</span> Productos</button><button data-tab="categories"><span>▤</span> Categorías</button><button data-tab="orders"><span>◫</span> Pedidos</button><button data-tab="kitchen"><span>♨</span> Cocina</button><button data-tab="pos"><span>▣</span> POS / Caja</button><button data-tab="inventory"><span>◇</span> Inventario</button><button data-tab="settings"><span>⚙</span> Negocio</button><button id="logoutBtn"><span>↪</span> Cerrar sesión</button><button id="backToStore"><span>↗</span> Ver página</button></aside>
  <div class="adminContent">
    <div class="adminTop"><div><span class="eyebrow">MORDISCO OS CLOUD</span><h1 id="adminTitle">Productos</h1></div><span class="cloudStatus">● Conectado a Supabase</span></div>
    <section id="tab-dashboard" class="tab hidden">
@@ -312,5 +312,5 @@
 </div>
 
 <div id="toast" class="toast"></div>
-<script src="app.js"></script>
+<script src="app.js?v=6.0.0"></script>
 </body></html>
