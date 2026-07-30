@@ -763,3 +763,25 @@ body.employeeMode .deleteSaleBtn{
   .staffSearchBox input{min-width:0}
   .staffCard{grid-template-columns:1fr}
 }
+
+/* V13.11 — VENTAS SOLO ADMIN Y CONTABILIDAD AUTOMÁTICA */
+.orderActions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+.orderActions select{
+  flex:1;
+  min-width:150px;
+}
+.deleteSaleBtn{
+  margin-left:auto;
+  background:#b42318 !important;
+  color:#fff !important;
+  border:0 !important;
+}
+body.employeeMode .deleteSaleBtn{
+  display:none !important;
+}

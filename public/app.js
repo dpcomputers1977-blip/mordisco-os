@@ -2,7 +2,7 @@
 const SUPABASE_URL='https://nmmjthqflxwucpmmmrks.supabase.co';
 const SUPABASE_KEY='sb_publishable_izCztp4wZ0MzKOHjT2KGYA_ot_3pgb0';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],staffMembers=[],tables=[],tableCart=[],currentTable=null,currentEmployee=null,currentShift=null,shifts=[],financeMovements=[],customers=[],promotions=[],contentPages=[],shiftAction='start',selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
+let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],staffMembers=[],tables=[],tableCart=[],currentTable=null,currentEmployee=null,currentShift=null,shifts=[],financeMovements=[],customers=[],promotions=[],contentPages=[],isAdminSession=false,shiftAction='start',selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
@@ -28,6 +28,8 @@ async function init(){
     }
 
     currentEmployee=savedEmployee;
+    isAdminSession=false;
+    document.body.classList.add('employeeMode');
     $('#loginModal').classList.add('hidden');
     showAdmin();
 
@@ -67,7 +69,20 @@ function applySettings(){$('#businessDescription').textContent=settings.descript
 function renderAll(){renderFilters();renderProducts();renderCart();renderAdminProducts();renderAdminCategories();fillCategorySelect();fillSettings();fillPosCategories();renderPosProducts();renderPosCart();fillPosStaff();renderHomePromotions()}
 function renderFilters(){const names=['Todos',...categories.filter(c=>c.active).map(c=>c.name)];$('#categoryFilters').innerHTML=names.map(n=>`<button class="${n===selectedCategory?'active':''}" data-cat="${esc(n)}">${esc(n)}</button>`).join('');$$('[data-cat]').forEach(b=>b.onclick=()=>{selectedCategory=b.dataset.cat;renderFilters();renderProducts()})}
 function filteredProducts(){const q=$('#searchInput').value.toLowerCase();return products.filter(p=>p.active&&(selectedCategory==='Todos'||p.categories?.name===selectedCategory)&&(`${p.name} ${p.description||''}`).toLowerCase().includes(q))}
-function renderProducts(){const list=filteredProducts();$('#productGrid').innerHTML=list.length?list.map(p=>`<article class="productCard">${p.featured?'<span class="featured">Favorito</span>':''}<div class="productImage">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="noImage">Sin imagen</div>'}</div><div class="productBody"><small>${esc(p.categories?.name||'Sin categoría')}</small><h3>${esc(p.name)}</h3><p>${esc(p.description||'')}</p><div class="productFoot"><strong>${money(p.price)}</strong><button data-add="${p.id}">+ Agregar</button></div></div>${!currentEmployee||currentEmployee.role==='admin'?`<div class="orderDeleteArea"><button class="danger deleteSaleBtn" data-delete-order="${o.id}">Eliminar venta</button></div>`:''}</article>`).join(''):'<div class="notice">No hay productos disponibles.</div>';$$('[data-add]').forEach(b=>b.onclick=()=>addCart(b.dataset.add))}
+function renderProducts(){
+  const list=filteredProducts();
+  $('#productGrid').innerHTML=list.length?list.map(p=>`<article class="productCard">
+    ${p.featured?'<span class="featured">Favorito</span>':''}
+    <div class="productImage">${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="noImage">Sin imagen</div>'}</div>
+    <div class="productBody">
+      <small>${esc(p.categories?.name||'Sin categoría')}</small>
+      <h3>${esc(p.name)}</h3>
+      <p>${esc(p.description||'')}</p>
+      <div class="productFoot"><strong>${money(p.price)}</strong><button data-add="${p.id}">+ Agregar</button></div>
+    </div>
+  </article>`).join(''):'<div class="notice">No hay productos disponibles.</div>';
+  $$('[data-add]').forEach(b=>b.onclick=()=>addCart(b.dataset.add));
+}
 $('#searchInput').oninput=renderProducts;
 function addCart(id){const f=cart.find(x=>x.id===id);if(f)f.qty++;else cart.push({id,qty:1});renderCart();openCart()}
 function changeQty(id,d){const f=cart.find(x=>x.id===id);if(!f)return;f.qty+=d;cart=cart.filter(x=>x.qty>0);renderCart()}
@@ -103,6 +118,9 @@ async function verifyAdmin(showError=true){
     if(showError)$('#loginMessage').textContent='Este usuario no está autorizado como administrador.';
     return;
   }
+  isAdminSession=true;
+  currentEmployee=null;
+  document.body.classList.remove('employeeMode');
   $('#loginModal').classList.add('hidden');
   showAdmin();
   await Promise.all([loadOrders(),loadProducts(),loadCategories(),loadSettings()]);
@@ -120,6 +138,7 @@ $('#logoutBtn').onclick=async()=>{
     location.href='/staff';
     return;
   }
+  isAdminSession=false;
   await db.auth.signOut();
   location.href='/';
 };
@@ -175,8 +194,8 @@ $('#categoryForm').onsubmit=async e=>{e.preventDefault();const id=$('#cId').valu
 function renderAdminCategories(){$('#adminCategories').innerHTML=categories.map(c=>`<article class="adminRow"><div></div><div><b>${esc(c.name)}</b><small>Orden ${c.sort_order} · ${c.active?'Activa':'Oculta'}</small></div><button data-edit-cat="${c.id}">Editar</button><button class="danger" data-delete-cat="${c.id}">Eliminar</button></article>`).join('');$$('[data-edit-cat]').forEach(b=>b.onclick=()=>{const c=categories.find(x=>x.id===b.dataset.editCat);$('#cId').value=c.id;$('#cName').value=c.name;$('#cSort').value=c.sort_order;$('#cActive').checked=c.active});$$('[data-delete-cat]').forEach(b=>b.onclick=async()=>{if(!confirm('¿Eliminar categoría? Los productos quedarán sin categoría.'))return;const {error}=await db.from('categories').delete().eq('id',b.dataset.deleteCat);if(error)return toast(error.message);await loadCategories();await loadProducts();renderAll()})}
 
 async function deleteSale(orderId){
-  if(currentEmployee && currentEmployee.role!=='admin'){
-    return toast('Solo el administrador puede eliminar ventas');
+  if(!isAdminSession){
+    return toast('Solo un administrador autenticado puede eliminar ventas');
   }
 
   const order=orders.find(o=>String(o.id)===String(orderId));
@@ -186,18 +205,15 @@ async function deleteSale(orderId){
     `¿Eliminar definitivamente la venta #${order.order_number||order.id}?\n\n`+
     `Total: ${money(order.total)}\n`+
     `Cliente: ${order.customer_name||'Sin cliente'}\n\n`+
-    `Esta acción no se puede deshacer.`
+    `La venta y su ingreso contable relacionado serán eliminados.`
   );
   if(!accepted)return;
 
-  const {error:itemError}=await db.from('order_items').delete().eq('order_id',orderId);
-  if(itemError)return toast('No se pudieron eliminar los productos de la venta: '+itemError.message);
-
-  const {error:orderError}=await db.from('orders').delete().eq('id',orderId);
-  if(orderError)return toast('No se pudo eliminar la venta: '+orderError.message);
+  const {error}=await db.rpc('delete_order_admin',{p_order_id:orderId});
+  if(error)return toast('No se pudo eliminar la venta: '+error.message);
 
   toast('Venta eliminada correctamente');
-  await loadOrders();
+  await Promise.all([loadOrders(),loadFinance()]);
   if(typeof loadShifts==='function')await loadShifts();
 }
 
@@ -242,14 +258,31 @@ const statusLabels={pending:'Pendiente',confirmed:'Confirmado',preparing:'Prepar
 function getFilteredOrders(){return orderStatusFilter==='all'?orders:orders.filter(o=>o.status===orderStatusFilter)}
 function renderOrders(){
   const list=getFilteredOrders();
-  $('#adminOrders').innerHTML=list.length?list.map(o=>`<article class="orderCard"><small>Pedido #${o.order_number}</small><h3>${esc(o.customer_name)}</h3><p>${o.order_items?.map(i=>`${i.quantity}× ${esc(i.product_name)}`).join(', ')||''}</p><p>${esc(o.customer_phone)} · ${esc(o.order_type)}</p><strong>${money(o.total)}</strong><p>${new Date(o.created_at).toLocaleString('es-EC')}</p><select data-status="${o.id}">${Object.entries(statusLabels).map(([value,label])=>`<option ${value===o.status?'selected':''} value="${value}">${label}</option>`).join('')}</select></article>`).join(''):'<div class="notice">No hay pedidos con ese estado.</div>';
-  $$('[data-status]').forEach(s=>s.onchange=async()=>{
-  $$('[data-delete-order]').forEach(b=>b.onclick=()=>deleteSale(b.dataset.deleteOrder));
-    const {error}=await db.from('orders').update({status:s.value}).eq('id',s.dataset.status);
-    if(error)toast(error.message);else{toast('Estado actualizado');await loadOrders()}
-  });
-}
+  $('#adminOrders').innerHTML=list.length?list.map(o=>`<article class="orderCard">
+    <small>Pedido #${o.order_number}</small>
+    <h3>${esc(o.customer_name)}</h3>
+    <p>${o.order_items?.map(i=>`${i.quantity}× ${esc(i.product_name)}`).join(', ')||''}</p>
+    <p>${esc(o.customer_phone||'Sin teléfono')} · ${esc(orderTypeLabel(o.order_type))}</p>
+    <p class="orderStaff">${o.cashier?.name?`💵 Cajero: ${esc(o.cashier.name)}`:'💵 Cajero: no registrado'}${o.waiter?.name?` · 🧑‍🍽️ Mesero: ${esc(o.waiter.name)}`:''}${o.restaurant_tables?.name?` · 🍽️ ${esc(o.restaurant_tables.name)}`:''}</p>
+    <strong>${money(o.total)}</strong>
+    <p>${new Date(o.created_at).toLocaleString('es-EC')}</p>
+    <div class="orderActions">
+      <select data-status="${o.id}">${Object.entries(statusLabels).map(([value,label])=>`<option ${value===o.status?'selected':''} value="${value}">${label}</option>`).join('')}</select>
+      ${isAdminSession?`<button class="danger deleteSaleBtn" data-delete-order="${o.id}">Eliminar venta</button>`:''}
+    </div>
+  </article>`).join(''):'<div class="notice">No hay pedidos con ese estado.</div>';
 
+  $$('[data-status]').forEach(s=>s.onchange=async()=>{
+    const {error}=await db.from('orders').update({status:s.value}).eq('id',s.dataset.status);
+    if(error)toast(error.message);
+    else{
+      toast('Estado actualizado');
+      await Promise.all([loadOrders(),loadFinance()]);
+    }
+  });
+
+  $$('[data-delete-order]').forEach(b=>b.onclick=()=>deleteSale(b.dataset.deleteOrder));
+}
 function elapsedLabel(createdAt){
   const mins=Math.max(0,Math.floor((Date.now()-new Date(createdAt).getTime())/60000));
   if(mins<60)return `${mins} min`;
