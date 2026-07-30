@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#11100e">
 <title>Mordisco Fast Food</title>
-<link rel="stylesheet" href="styles.css?v=13.6.0">
+<link rel="stylesheet" href="styles.css?v=13.7.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -500,7 +500,7 @@
       </div>
 
       <div class="staffLayout">
-        <form id="staffForm" class="panel formGrid staffForm">
+        <form id="staffForm" class="panel formGrid staffForm" autocomplete="off">
           <input id="staffId" type="hidden">
           <h3 class="wide">Registrar empleado</h3>
           <label class="wide">Nombre completo
@@ -514,10 +514,10 @@
             </select>
           </label>
           <label>Teléfono
-            <input id="staffPhone" placeholder="Opcional">
+            <input id="staffPhone" name="employee_phone_number" type="tel" inputmode="tel" autocomplete="off" placeholder="Ej. 0991234567">
           </label>
           <label class="wide">PIN de acceso
-            <input id="staffPin" type="password" inputmode="numeric" maxlength="6" placeholder="4 a 6 números">
+            <input id="staffPin" name="employee_access_pin" autocomplete="new-password" type="password" inputmode="numeric" maxlength="6" placeholder="4 a 6 números">
           </label>
           <label class="check wide">
             <input id="staffActive" type="checkbox" checked> Empleado activo
@@ -536,7 +536,7 @@
               <small>Administra roles y disponibilidad.</small>
             </div>
             <div class="staffFilters">
-              <input id="staffSearch" placeholder="Buscar empleado...">
+              <div class="staffSearchBox"><input id="staffSearch" name="employee_directory_search" type="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Buscar empleado..."><button type="button" id="clearStaffSearch" class="dark">Limpiar</button></div>
               <select id="staffRoleFilter">
                 <option value="all">Todos los roles</option>
                 <option value="waiter">Meseros</option>
@@ -624,5 +624,5 @@
   </div>
 </div>
 <div id="toast" class="toast"></div>
-<script src="app.js?v=13.6.0"></script>
+<script src="app.js?v=13.7.0"></script>
 </body></html>

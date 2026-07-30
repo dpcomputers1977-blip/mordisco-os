@@ -751,3 +751,15 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-s
 body.employeeMode .deleteSaleBtn{
   display:none !important;
 }
+
+/* V13.7 — PERSONAL SIEMPRE VISIBLE */
+.staffSearchBox{display:flex;gap:8px;align-items:center}
+.staffSearchBox input{min-width:230px;flex:1}
+.staffSearchBox button{flex:0 0 auto}
+#staffList{min-height:180px}
+.staffCard{display:grid;grid-template-columns:minmax(220px,1fr) auto auto;gap:14px;align-items:center}
+@media(max-width:760px){
+  .staffSearchBox{width:100%}
+  .staffSearchBox input{min-width:0}
+  .staffCard{grid-template-columns:1fr}
+}

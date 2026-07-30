@@ -123,7 +123,11 @@ $('#logoutBtn').onclick=async()=>{
   await db.auth.signOut();
   location.href='/';
 };
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',shifts:'Turnos',staff:'Personal',finance:'Contabilidad',customers:'Clientes',promotions:'Promociones',pages:'Páginas',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff')await loadStaff();if(tab==='tables')await loadTables();if(tab==='shifts')await loadShifts();if(tab==='finance')await loadFinance();if(tab==='customers')await loadCustomers();if(tab==='promotions')await loadPromotions();if(tab==='pages')await loadContentPages()});
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',shifts:'Turnos',staff:'Personal',finance:'Contabilidad',customers:'Clientes',promotions:'Promociones',pages:'Páginas',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff'){
+    if($('#staffSearch'))$('#staffSearch').value='';
+    if($('#staffRoleFilter'))$('#staffRoleFilter').value='all';
+    await loadStaff();
+  }if(tab==='tables')await loadTables();if(tab==='shifts')await loadShifts();if(tab==='finance')await loadFinance();if(tab==='customers')await loadCustomers();if(tab==='promotions')await loadPromotions();if(tab==='pages')await loadContentPages()});
 function fillCategorySelect(){$('#pCategory').innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
 function resetProduct(){$('#productForm').reset();$('#pId').value='';$('#pActive').checked=true;$('#pSort').value=0;editingImage='';updatePreview('')}
 function updatePreview(src){$('#pPreview').src=src||'';$('#pPreview').classList.toggle('hidden',!src);$('#pNoImage').classList.toggle('hidden',!!src);$('#removeProductImage').classList.toggle('hidden',!src)}
@@ -793,16 +797,39 @@ function staffRoleLabel(role){return({waiter:'Mesero',cashier:'Cajero',kitchen:'
 function staffRoleIcon(role){return({waiter:'🧑‍🍽️',cashier:'💵',kitchen:'👨‍🍳'})[role]||'👤'}
 async function loadStaff(){
   const {data,error}=await db.from('staff').select('id,name,role,phone,active,created_at,updated_at').order('name');
-  if(error)return toast('Primero ejecuta el SQL de Personal en Supabase');
+  if(error){
+    console.error('Error cargando personal:',error);
+    return toast('Error cargando personal: '+error.message);
+  }
   staffMembers=data||[];
+
+  if($('#staffSearch')){
+    const currentSearch=$('#staffSearch').value.trim();
+    if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentSearch))$('#staffSearch').value='';
+  }
+  if($('#staffPhone')){
+    const currentPhone=$('#staffPhone').value.trim();
+    if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(currentPhone))$('#staffPhone').value='';
+  }
+
   renderStaff();
-  fillPosStaff();fillEmployeeLogin();
+  fillPosStaff();
+  fillEmployeeLogin();
 }
 function renderStaff(){
   if(!$('#staffList'))return;
-  const q=($('#staffSearch').value||'').trim().toLowerCase();
-  const role=$('#staffRoleFilter').value||'all';
-  const list=staffMembers.filter(s=>(role==='all'||s.role===role)&&(`${s.name} ${s.phone||''}`).toLowerCase().includes(q));
+  let q=($('#staffSearch')?.value||'').trim().toLowerCase();
+  const role=$('#staffRoleFilter')?.value||'all';
+
+  if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q)){
+    q='';
+    if($('#staffSearch'))$('#staffSearch').value='';
+  }
+
+  const list=staffMembers.filter(s=>
+    (role==='all'||s.role===role)&&
+    (`${s.name} ${s.phone||''} ${staffRoleLabel(s.role)}`).toLowerCase().includes(q)
+  );
   const active=staffMembers.filter(s=>s.active);
   $('#staffActiveCount').textContent=active.length;
   $('#staffWaiterCount').textContent=active.filter(s=>s.role==='waiter').length;
@@ -868,6 +895,11 @@ $('#staffForm').onsubmit=async e=>{
 $('#clearStaff').onclick=resetStaffForm;
 $('#staffSearch').oninput=renderStaff;
 $('#staffRoleFilter').onchange=renderStaff;
+if($('#clearStaffSearch'))$('#clearStaffSearch').onclick=()=>{
+  $('#staffSearch').value='';
+  $('#staffRoleFilter').value='all';
+  renderStaff();
+};
 
 
 function fillEmployeeLogin(){
