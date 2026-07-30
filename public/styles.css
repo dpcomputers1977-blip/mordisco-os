@@ -353,3 +353,20 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-s
 .staffActions button{padding:8px 10px;font-size:.8rem}
 @media(max-width:1000px){.staffLayout{grid-template-columns:1fr}.staffForm{position:static}}
 @media(max-width:700px){.staffHeader{align-items:flex-start;flex-direction:column}.staffStats{width:100%;grid-template-columns:1fr}.staffFilters{width:100%;flex-direction:column}.staffFilters input{min-width:0}.staffCard{grid-template-columns:1fr}.staffActions{grid-column:1/-1}}
+
+/* V9 — ACCESO PERSONAL, MESAS Y COMANDAS */
+.employeeAccessBtn{background:#fff1;border:1px solid #fff3;color:#fff;border-radius:11px;padding:10px 13px;font-weight:900}
+.employeeLoginCard{max-width:430px;text-align:center}.employeeLoginLogo img{width:105px;height:90px;object-fit:contain}
+.employeeLoginCard label{display:block;text-align:left;font-weight:850;margin:12px 0}.employeeLoginCard input,.employeeLoginCard select{width:100%;margin-top:5px}
+.full{width:100%}
+.tablesHeader{display:flex;justify-content:space-between;align-items:center;gap:18px;background:linear-gradient(135deg,#171512,#2b241b);color:#fff;padding:22px;border-radius:22px;box-shadow:var(--shadow);margin-bottom:16px}
+.tablesHeader h2{margin:0 0 5px}.tablesHeader p{margin:0;color:#cec5b7}
+.tablesStats{display:grid;grid-template-columns:repeat(3,minmax(100px,1fr));gap:8px}.tablesStats div{background:#fff1;border:1px solid #fff2;border-radius:13px;padding:10px 13px}.tablesStats span{display:block;font-size:.76rem;opacity:.7}.tablesStats strong{color:var(--gold);font-size:1.3rem}
+.tablesToolbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:15px}.tablesToolbar .inlineForm{display:flex;gap:8px}.tablesToolbar input{max-width:180px}
+.tableLegend{display:flex;gap:12px;flex-wrap:wrap;font-size:.82rem;font-weight:800}.tableLegend span{display:flex;align-items:center;gap:5px}.tableLegend i{width:11px;height:11px;border-radius:50%}.tableLegend .free{background:#23a354}.tableLegend .occupied{background:#d9a400}.tableLegend .preparing{background:#e56a1b}.tableLegend .payment{background:#c9362b}
+.tablesGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.tableCard{border:0;border-radius:18px;padding:18px;text-align:left;min-height:150px;box-shadow:var(--shadow-soft);position:relative;overflow:hidden}.tableCard:after{content:"";position:absolute;right:-25px;bottom:-25px;width:90px;height:90px;border-radius:50%;background:#fff4}
+.tableCard.free{background:#eaf8ef}.tableCard.occupied{background:#fff5d7}.tableCard.preparing{background:#ffeadc}.tableCard.payment{background:#ffe4e1}.tableCard h3{font-size:1.35rem;margin:0 0 5px}.tableCard p{margin:0;color:#665d51}.tableCard strong{display:block;margin-top:17px}.tableCard .tableMeta{font-size:.78rem;margin-top:7px}
+.tableOrderCard{width:min(1250px,96vw);max-width:none}.tableOrderHead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.tableOrderHead h2{margin:3px 0}.tableOrderLayout{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(320px,.75fr);gap:16px}.tableTicket{background:#f5f1e9;border-radius:16px;padding:15px}.tableTicket label{display:block;font-weight:850;font-size:.83rem;margin-top:10px}.tableTicket input,.tableTicket textarea{width:100%;margin-top:5px}.tableTicket button{margin-top:8px}
+.roleRestricted{display:none!important}
+@media(max-width:1050px){.tablesGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.tableOrderLayout{grid-template-columns:1fr}.tablesHeader{align-items:flex-start;flex-direction:column}.tablesStats{width:100%}}
+@media(max-width:700px){.tablesGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.tablesToolbar{align-items:flex-start;flex-direction:column}.tablesToolbar .inlineForm{width:100%;flex-direction:column}.tablesToolbar input{max-width:none}.tablesStats{grid-template-columns:1fr}.tableOrderCard{width:100%;height:100%;max-height:100%;border-radius:0}}

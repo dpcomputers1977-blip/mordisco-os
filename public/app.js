@@ -2,7 +2,7 @@
 const SUPABASE_URL='https://nmmjthqflxwucpmmmrks.supabase.co';
 const SUPABASE_KEY='sb_publishable_izCztp4wZ0MzKOHjT2KGYA_ot_3pgb0';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],staffMembers=[],selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
+let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],staffMembers=[],tables=[],tableCart=[],currentTable=null,currentEmployee=null,selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
@@ -32,7 +32,7 @@ async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.get
 function showAdmin(){$('#publicView').classList.add('hidden');$('.topbar').classList.add('hidden');$('#adminView').classList.remove('hidden')}
 function showStore(){$('#adminView').classList.add('hidden');$('#publicView').classList.remove('hidden');$('.topbar').classList.remove('hidden')}
 $('#backToStore').onclick=showStore;$('#logoutBtn').onclick=async()=>{await db.auth.signOut();showStore();toast('Sesión cerrada')};
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',staff:'Personal',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff')await loadStaff()});
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',staff:'Personal',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff')await loadStaff();if(tab==='tables')await loadTables()});
 function fillCategorySelect(){$('#pCategory').innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
 function resetProduct(){$('#productForm').reset();$('#pId').value='';$('#pActive').checked=true;$('#pSort').value=0;editingImage='';updatePreview('')}
 function updatePreview(src){$('#pPreview').src=src||'';$('#pPreview').classList.toggle('hidden',!src);$('#pNoImage').classList.toggle('hidden',!!src);$('#removeProductImage').classList.toggle('hidden',!src)}
@@ -488,6 +488,72 @@ $$('[data-inventory-view]').forEach(b=>b.onclick=()=>{
 });
 
 
+
+function tableStatusLabel(status){return({free:'Libre',occupied:'Ocupada',preparing:'Preparando',payment:'Por cobrar'})[status]||status}
+async function loadTables(){
+  const {data,error}=await db.from('restaurant_tables').select('*,staff(name)').order('sort_order');
+  if(error)return toast('Primero ejecuta el SQL V9 en Supabase');
+  tables=data||[];renderTables();
+}
+function renderTables(){
+  if(!$('#tablesGrid'))return;
+  $('#tablesFreeCount').textContent=tables.filter(t=>t.status==='free').length;
+  $('#tablesBusyCount').textContent=tables.filter(t=>['occupied','preparing'].includes(t.status)).length;
+  $('#tablesPaymentCount').textContent=tables.filter(t=>t.status==='payment').length;
+  $('#tablesGrid').innerHTML=tables.length?tables.map(t=>`<button class="tableCard ${t.status}" data-open-table="${t.id}">
+    <h3>${esc(t.name)}</h3><p>${t.seats} puestos</p><strong>${tableStatusLabel(t.status)}</strong>
+    <div class="tableMeta">${t.staff?.name?`Mesero: ${esc(t.staff.name)}`:'Sin mesero asignado'}</div>
+  </button>`).join(''):'<div class="inventoryEmpty">No hay mesas. Crea la primera.</div>';
+  $$('[data-open-table]').forEach(b=>b.onclick=()=>openTableOrder(b.dataset.openTable));
+}
+$('#createTableBtn').onclick=async()=>{
+  const name=$('#newTableName').value.trim();if(!name)return toast('Escribe el nombre de la mesa');
+  const payload={name,seats:Number($('#newTableSeats').value||4),sort_order:tables.length+1};
+  const {error}=await db.from('restaurant_tables').insert(payload);if(error)return toast(error.message);
+  $('#newTableName').value='';toast('Mesa creada');await loadTables();
+};
+function fillTableSelectors(){
+  $('#tableCategory').innerHTML='<option value="all">Todas las categorías</option>'+categories.filter(c=>c.active).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+}
+function getTableProducts(){
+  const q=($('#tableProductSearch').value||'').toLowerCase(),cat=$('#tableCategory').value||'all';
+  return products.filter(p=>p.active&&(cat==='all'||String(p.category_id)===String(cat))&&(`${p.name} ${p.description||''}`).toLowerCase().includes(q));
+}
+function renderTableProducts(){
+  const list=getTableProducts();
+  $('#tableProducts').innerHTML=list.map(p=>`<button class="posProduct" data-table-add="${p.id}">
+    ${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="posProductNoImage">Sin imagen</div>'}
+    <span class="posProductInfo"><small>${esc(p.categories?.name||'')}</small><b>${esc(p.name)}</b><strong>${money(p.price)}</strong></span>
+  </button>`).join('');
+  $$('[data-table-add]').forEach(b=>b.onclick=()=>{const r=tableCart.find(x=>String(x.id)===String(b.dataset.tableAdd));if(r)r.qty++;else tableCart.push({id:b.dataset.tableAdd,qty:1});renderTableCart()});
+}
+function renderTableCart(){
+  const total=tableCart.reduce((s,r)=>{const p=products.find(x=>String(x.id)===String(r.id));return s+(p?Number(p.price)*r.qty:0)},0);
+  $('#tableTotal').textContent=money(total);
+  $('#tableCart').innerHTML=tableCart.length?tableCart.map(r=>{const p=products.find(x=>String(x.id)===String(r.id));return `<div class="posCartRow"><div class="posCartRowMain"><b>${esc(p.name)}</b><div class="posQty"><button data-table-minus="${p.id}">−</button><span>${r.qty}</span><button data-table-plus="${p.id}">+</button></div></div><div class="posCartPrice">${money(Number(p.price)*r.qty)}</div></div>`}).join(''):'<div class="posEmpty">Selecciona productos.</div>';
+  $$('[data-table-minus]').forEach(b=>b.onclick=()=>{const r=tableCart.find(x=>String(x.id)===String(b.dataset.tableMinus));r.qty--;tableCart=tableCart.filter(x=>x.qty>0);renderTableCart()});
+  $$('[data-table-plus]').forEach(b=>b.onclick=()=>{tableCart.find(x=>String(x.id)===String(b.dataset.tablePlus)).qty++;renderTableCart()});
+}
+async function openTableOrder(id){
+  currentTable=tables.find(t=>String(t.id)===String(id));if(!currentTable)return;
+  tableCart=[];fillTableSelectors();renderTableProducts();renderTableCart();
+  $('#tableOrderTitle').textContent=currentTable.name;$('#tableOrderStatus').textContent=tableStatusLabel(currentTable.status);
+  $('#tableCustomer').value='';$('#tableNotes').value='';$('#tableOrderModal').classList.remove('hidden');
+}
+$('#tableProductSearch').oninput=renderTableProducts;$('#tableCategory').onchange=renderTableProducts;
+$('#sendTableOrder').onclick=async()=>{
+  if(!currentTable||!tableCart.length)return toast('Agrega productos');
+  const total=tableCart.reduce((s,r)=>{const p=products.find(x=>String(x.id)===String(r.id));return s+Number(p.price)*r.qty},0);
+  const order={customer_name:$('#tableCustomer').value.trim()||currentTable.name,customer_phone:'',customer_address:'',order_type:'local',payment_method:'cash',notes:`${currentTable.name}. ${$('#tableNotes').value.trim()}`.trim(),subtotal:total,delivery_cost:0,total,status:'pending',waiter_id:currentEmployee?.role==='waiter'?currentEmployee.id:(currentTable.staff_id||null),table_id:currentTable.id};
+  const {data,error}=await db.from('orders').insert(order).select().single();if(error)return toast(error.message);
+  const items=tableCart.map(r=>{const p=products.find(x=>String(x.id)===String(r.id));return{order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:r.qty,subtotal:Number(p.price)*r.qty}});
+  const {error:itemError}=await db.from('order_items').insert(items);if(itemError)return toast(itemError.message);
+  await db.from('restaurant_tables').update({status:'preparing',current_order_id:data.id,staff_id:order.waiter_id,updated_at:new Date().toISOString()}).eq('id',currentTable.id);
+  toast(`Comanda #${data.order_number} enviada a cocina`);$('#tableOrderModal').classList.add('hidden');await loadTables();await loadOrders();
+};
+$('#markTablePayment').onclick=async()=>{if(!currentTable)return;await db.from('restaurant_tables').update({status:'payment',updated_at:new Date().toISOString()}).eq('id',currentTable.id);toast('Mesa pendiente de cobro');$('#tableOrderModal').classList.add('hidden');await loadTables()};
+$('#freeTable').onclick=async()=>{if(!currentTable)return;await db.from('restaurant_tables').update({status:'free',current_order_id:null,staff_id:null,updated_at:new Date().toISOString()}).eq('id',currentTable.id);toast('Mesa liberada');$('#tableOrderModal').classList.add('hidden');await loadTables()};
+
 function staffRoleLabel(role){return({waiter:'Mesero',cashier:'Cajero',kitchen:'Cocina'})[role]||role}
 function staffRoleIcon(role){return({waiter:'🧑‍🍽️',cashier:'💵',kitchen:'👨‍🍳'})[role]||'👤'}
 async function loadStaff(){
@@ -495,7 +561,7 @@ async function loadStaff(){
   if(error)return toast('Primero ejecuta el SQL de Personal en Supabase');
   staffMembers=data||[];
   renderStaff();
-  fillPosStaff();
+  fillPosStaff();fillEmployeeLogin();
 }
 function renderStaff(){
   if(!$('#staffList'))return;
@@ -550,6 +616,35 @@ $('#clearStaff').onclick=resetStaffForm;
 $('#staffSearch').oninput=renderStaff;
 $('#staffRoleFilter').onchange=renderStaff;
 
+
+function fillEmployeeLogin(){
+  if(!$('#employeeLoginStaff'))return;
+  $('#employeeLoginStaff').innerHTML=staffMembers.filter(s=>s.active).map(s=>`<option value="${s.id}">${esc(s.name)} — ${staffRoleLabel(s.role)}</option>`).join('');
+}
+function applyEmployeePermissions(employee){
+  currentEmployee=employee;localStorage.setItem('mordisco_employee',JSON.stringify(employee));
+  const allowed={waiter:['tables','orders'],cashier:['pos','orders','tables'],kitchen:['kitchen'],admin:['dashboard','products','categories','orders','kitchen','pos','inventory','tables','staff','settings']}[employee.role]||[];
+  $$('.sidebar [data-tab]').forEach(b=>b.classList.toggle('roleRestricted',!allowed.includes(b.dataset.tab)));
+  $('#logoutBtn').textContent='Cerrar turno';
+  const first=$(`.sidebar [data-tab="${allowed[0]}"]`);if(first)first.click();
+}
+async function loginEmployee(){
+  const id=$('#employeeLoginStaff').value,pin=$('#employeeLoginPin').value.trim();
+  if(!id||!/^\d{4,6}$/.test(pin))return toast('Ingresa un PIN válido');
+  const {data,error}=await db.rpc('verify_staff_pin',{staff_id:id,staff_pin:pin});
+  if(error||!data)return toast('PIN incorrecto');
+  const employee=staffMembers.find(s=>String(s.id)===String(id));if(!employee)return;
+  $('#employeeLoginModal').classList.add('hidden');$('#employeeLoginPin').value='';
+  $('#publicView').classList.add('hidden');$('#adminView').classList.remove('hidden');
+  applyEmployeePermissions(employee);toast(`Bienvenido, ${employee.name}`);
+}
+$('#employeeAccessBtn')?.addEventListener('click',async()=>{await loadStaff();fillEmployeeLogin();$('#employeeLoginModal').classList.remove('hidden')});
+$('#employeeLoginSubmit').onclick=loginEmployee;
+$('#employeeLoginPin').onkeydown=e=>{if(e.key==='Enter')loginEmployee()};
+
 function fillSettings(){$('#sName').value=settings.business_name||'';$('#sWhatsapp').value=settings.whatsapp||'';$('#sDescription').value=settings.description||'';$('#sAddress').value=settings.address||'';$('#sSchedule').value=settings.schedule||'';$('#sDelivery').value=settings.delivery_cost||0;$('#sMinimum').value=settings.minimum_order||0;$('#sAccepting').checked=settings.accepting_orders!==false}
 $('#settingsForm').onsubmit=async e=>{e.preventDefault();const row={id:1,business_name:$('#sName').value,whatsapp:$('#sWhatsapp').value,description:$('#sDescription').value,address:$('#sAddress').value,schedule:$('#sSchedule').value,delivery_cost:Number($('#sDelivery').value||0),minimum_order:Number($('#sMinimum').value||0),accepting_orders:$('#sAccepting').checked};const {error}=await db.from('business_settings').upsert(row);if(error)return toast(error.message);settings=row;applySettings();toast('Configuración guardada en la nube')};
 init();
+
+$$('[data-close="employeeLoginModal"]').forEach(b=>b.onclick=()=>$('#employeeLoginModal').classList.add('hidden'));
+$$('[data-close="tableOrderModal"]').forEach(b=>b.onclick=()=>$('#tableOrderModal').classList.add('hidden'));
