@@ -375,3 +375,16 @@ input:focus,select:focus,textarea:focus{border-color:var(--gold)!important;box-s
 .posHeaderStats b{display:block;color:#fff;margin:2px 0 9px;font-size:.95rem}
 .orderStaff{margin:5px 0;color:var(--muted);font-size:.84rem}
 .clientAppLink{display:inline-flex;align-items:center;gap:6px;background:#ffc400;color:#111;text-decoration:none;font-weight:900;padding:10px 13px;border-radius:11px}
+
+/* V11 — TURNOS Y COMANDAS */
+.shiftToolbar{display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap}
+.currentShiftCard{margin-bottom:15px}
+.currentShiftCard.active{border-left:6px solid #23a354;background:#effaf3}
+.currentShiftCard.closed{border-left:6px solid #999}
+.shiftSummaryGrid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:10px;margin-top:12px}
+.shiftSummaryGrid div{background:#fff;border-radius:12px;padding:12px;border:1px solid #e7e0d5}
+.shiftSummaryGrid span{display:block;color:var(--muted);font-size:.78rem}
+.shiftSummaryGrid strong{font-size:1.1rem}
+.dataTable{width:100%;border-collapse:collapse}.dataTable th,.dataTable td{padding:11px;border-bottom:1px solid #ece5da;text-align:left;font-size:.88rem}.dataTable th{font-size:.76rem;text-transform:uppercase;color:var(--muted)}
+.tableWrap{overflow:auto}
+@media(max-width:700px){.shiftSummaryGrid{grid-template-columns:repeat(2,1fr)}}

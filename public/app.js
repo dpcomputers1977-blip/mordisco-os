@@ -2,7 +2,7 @@
 const SUPABASE_URL='https://nmmjthqflxwucpmmmrks.supabase.co';
 const SUPABASE_KEY='sb_publishable_izCztp4wZ0MzKOHjT2KGYA_ot_3pgb0';
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],staffMembers=[],tables=[],tableCart=[],currentTable=null,currentEmployee=null,selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
+let products=[],categories=[],settings={},orders=[],cart=[],posCart=[],ingredients=[],inventoryMovements=[],recipes=[],staffMembers=[],tables=[],tableCart=[],currentTable=null,currentEmployee=null,currentShift=null,shifts=[],shiftAction='start',selectedCategory='Todos',editingImage='',adminProductQuery='',adminProductFilter='all',orderStatusFilter='all',ordersChannel=null,lastKnownOrderIds=new Set(),kitchenTimerHandle=null,lastReceiptOrder=null;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
@@ -32,7 +32,7 @@ async function verifyAdmin(showError=true){const {data:{user}}=await db.auth.get
 function showAdmin(){$('#publicView').classList.add('hidden');$('.topbar').classList.add('hidden');$('#adminView').classList.remove('hidden')}
 function showStore(){$('#adminView').classList.add('hidden');$('#publicView').classList.remove('hidden');$('.topbar').classList.remove('hidden')}
 $('#backToStore').onclick=showStore;$('#logoutBtn').onclick=async()=>{await db.auth.signOut();showStore();toast('Sesión cerrada')};
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',staff:'Personal',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff')await loadStaff();if(tab==='tables')await loadTables()});
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',shifts:'Turnos',staff:'Personal',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart()}if(tab==='inventory')await loadInventoryData();if(tab==='staff')await loadStaff();if(tab==='tables')await loadTables();if(tab==='shifts')await loadShifts()});
 function fillCategorySelect(){$('#pCategory').innerHTML=categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
 function resetProduct(){$('#productForm').reset();$('#pId').value='';$('#pActive').checked=true;$('#pSort').value=0;editingImage='';updatePreview('')}
 function updatePreview(src){$('#pPreview').src=src||'';$('#pPreview').classList.toggle('hidden',!src);$('#pNoImage').classList.toggle('hidden',!!src);$('#removeProductImage').classList.toggle('hidden',!src)}
@@ -338,6 +338,7 @@ function buildReceipt(order,items,received){
 async function completePosSale(){
   if(!posCart.length)return toast('Agrega al menos un producto');
   if(!$('#posCashier').value)return toast('Selecciona el cajero que realiza el cobro');
+  if(currentEmployee?.role==='cashier'&&!currentShift)return toast('Debes iniciar tu turno antes de cobrar');
   const totals=posTotals();
   const payment=$('#posPayment').value;
   const received=Number($('#posReceived').value||0);
@@ -529,6 +530,80 @@ $$('[data-inventory-view]').forEach(b=>b.onclick=()=>{
 
 
 
+
+async function loadShifts(){
+  const today=new Date();today.setHours(0,0,0,0);
+  const {data,error}=await db.from('work_shifts').select('*,staff(name,role)').gte('started_at',today.toISOString()).order('started_at',{ascending:false});
+  if(error){console.error(error);return toast('Error cargando turnos: '+error.message)}
+  shifts=data||[];
+  currentShift=currentEmployee?shifts.find(s=>s.staff_id===currentEmployee.id&&s.status==='open')||null:null;
+  renderShifts();
+}
+function renderShifts(){
+  if(!$('#shiftHistoryBody'))return;
+  $('#openShiftCount').textContent=shifts.filter(s=>s.status==='open').length;
+  $('#shiftSalesCount').textContent=shifts.reduce((n,s)=>n+Number(s.sales_count||0),0);
+  $('#shiftSalesTotal').textContent=money(shifts.reduce((n,s)=>n+Number(s.sales_total||0),0));
+
+  const c=$('#currentShiftCard');
+  if(!currentEmployee){
+    c.className='panel currentShiftCard closed';
+    c.innerHTML='<h3>Inicia sesión como empleado para administrar tu turno.</h3>';
+  }else if(currentShift){
+    c.className='panel currentShiftCard active';
+    c.innerHTML=`<h3>Turno activo — ${esc(currentEmployee.name)}</h3>
+      <p>Inicio: ${new Date(currentShift.started_at).toLocaleString()}</p>
+      <div class="shiftSummaryGrid">
+        <div><span>Efectivo inicial</span><strong>${money(currentShift.opening_cash||0)}</strong></div>
+        <div><span>Ventas</span><strong>${currentShift.sales_count||0}</strong></div>
+        <div><span>Total cobrado</span><strong>${money(currentShift.sales_total||0)}</strong></div>
+        <div><span>Estado</span><strong>Abierto</strong></div>
+      </div>`;
+  }else{
+    c.className='panel currentShiftCard closed';
+    c.innerHTML=`<h3>${esc(currentEmployee.name)}</h3><p>No tienes un turno abierto.</p>`;
+  }
+
+  $('#shiftHistoryBody').innerHTML=shifts.length?shifts.map(s=>`<tr>
+    <td>${esc(s.staff?.name||'Empleado')}</td>
+    <td>${staffRoleLabel(s.staff?.role||'')}</td>
+    <td>${new Date(s.started_at).toLocaleString()}</td>
+    <td>${s.ended_at?new Date(s.ended_at).toLocaleString():'—'}</td>
+    <td>${s.sales_count||0}</td>
+    <td>${money(s.sales_total||0)}</td>
+    <td>${s.status==='open'?'Abierto':'Cerrado'}</td>
+  </tr>`).join(''):'<tr><td colspan="7">No hay turnos registrados hoy.</td></tr>';
+}
+function openShiftModal(action){
+  if(!currentEmployee)return toast('Primero inicia sesión como empleado');
+  shiftAction=action;
+  $('#shiftPinTitle').textContent=action==='start'?'Iniciar turno':'Cerrar turno';
+  $('#shiftPinHelp').textContent=action==='start'?'Confirma tu PIN y registra el efectivo inicial.':'Confirma tu PIN y registra el efectivo contado al cierre.';
+  $('#openingCashLabel').classList.toggle('hidden',action!=='start');
+  $('#closingCashLabel').classList.toggle('hidden',action!=='close');
+  $('#shiftPinInput').value='';
+  $('#shiftPinModal').classList.remove('hidden');
+}
+$('#startShiftBtn').onclick=()=>{if(currentShift)return toast('Ya tienes un turno abierto');openShiftModal('start')};
+$('#closeShiftBtn').onclick=()=>{if(!currentShift)return toast('No tienes un turno abierto');openShiftModal('close')};
+$('#refreshShiftsBtn').onclick=loadShifts;
+$('#shiftPinConfirm').onclick=async()=>{
+  const pin=$('#shiftPinInput').value.trim();
+  if(!/^\d{4,6}$/.test(pin))return toast('Ingresa un PIN válido');
+  if(shiftAction==='start'){
+    const {data,error}=await db.rpc('start_work_shift',{employee_id:currentEmployee.id,employee_pin:pin,initial_cash:Number($('#openingCashInput').value||0)});
+    if(error)return toast(error.message);
+    toast('Turno iniciado correctamente');
+  }else{
+    const {data,error}=await db.rpc('close_work_shift',{employee_id:currentEmployee.id,employee_pin:pin,counted_cash:Number($('#closingCashInput').value||0)});
+    if(error)return toast(error.message);
+    toast('Turno cerrado correctamente');
+  }
+  $('#shiftPinModal').classList.add('hidden');
+  await loadShifts();
+};
+$$('[data-close="shiftPinModal"]').forEach(b=>b.onclick=()=>$('#shiftPinModal').classList.add('hidden'));
+
 function tableStatusLabel(status){return({free:'Libre',occupied:'Ocupada',preparing:'Preparando',payment:'Por cobrar'})[status]||status}
 async function loadTables(){
   const {data,error}=await db.from('restaurant_tables').select('*,staff(name)').order('sort_order');
@@ -678,7 +753,7 @@ function applyEmployeePermissions(employee){
     if($('#posCashier'))$('#posCashier').disabled=false;
     if($('#activeCashierName'))$('#activeCashierName').textContent='Sin seleccionar';
   }
-  const allowed={waiter:['tables','orders'],cashier:['pos','orders','tables'],kitchen:['kitchen'],admin:['dashboard','products','categories','orders','kitchen','pos','inventory','tables','staff','settings']}[employee.role]||[];
+  const allowed={waiter:['tables','orders'],cashier:['pos','orders','tables','shifts'],kitchen:['kitchen'],admin:['dashboard','products','categories','orders','kitchen','pos','inventory','tables','shifts','staff','settings']}[employee.role]||[];
   $$('.sidebar [data-tab]').forEach(b=>b.classList.toggle('roleRestricted',!allowed.includes(b.dataset.tab)));
   $('#logoutBtn').textContent='Cerrar turno';
   const first=$(`.sidebar [data-tab="${allowed[0]}"]`);if(first)first.click();
@@ -691,7 +766,7 @@ async function loginEmployee(){
   const employee=staffMembers.find(s=>String(s.id)===String(id));if(!employee)return;
   $('#employeeLoginModal').classList.add('hidden');$('#employeeLoginPin').value='';
   $('#publicView').classList.add('hidden');$('#adminView').classList.remove('hidden');
-  applyEmployeePermissions(employee);toast(`Bienvenido, ${employee.name}`);
+  applyEmployeePermissions(employee);await loadShifts();toast(`Bienvenido, ${employee.name}`);
 }
 $('#employeeAccessBtn')?.addEventListener('click',async()=>{await loadStaff();fillEmployeeLogin();$('#employeeLoginModal').classList.remove('hidden')});
 $('#employeeLoginSubmit').onclick=loginEmployee;
