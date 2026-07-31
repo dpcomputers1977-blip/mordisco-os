@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#11100e">
 <title>Mordisco Fast Food</title>
-<link rel="stylesheet" href="styles.css?v=13.16.0">
+<link rel="stylesheet" href="styles.css?v=13.18.0">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -101,7 +101,12 @@
           <h2>Pantalla de cocina</h2>
           <p>Los pedidos nuevos aparecen automáticamente.</p>
         </div>
-        <div class="kitchenEmployeeStatus" id="kitchenEmployeeStatus">Los cambios se sincronizan automáticamente con Caja y Mesas.</div><div class="kitchenActions">
+        <div class="kitchenEmployeeStatus" id="kitchenEmployeeStatus">
+      <span class="kitchenLiveDot"></span>
+      <span id="kitchenSyncText">Cocina conectada y actualizándose automáticamente.</span>
+    </div>
+    <div class="kitchenActions">
+      <button class="dark" id="refreshKitchenNow">Actualizar ahora</button>
           <label class="check"><input id="kitchenSound" type="checkbox" checked> Sonido</label>
           <button class="dark" id="refreshKitchen">Actualizar</button>
           <button class="primary" id="fullscreenKitchen">Pantalla completa</button>
@@ -650,5 +655,5 @@
   </div>
 </div>
 <div id="toast" class="toast"></div>
-<script src="app.js?v=13.16.0"></script>
+<script src="app.js?v=13.18.0"></script>
 </body></html>

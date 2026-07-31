@@ -147,7 +147,11 @@ $('#logoutBtn').onclick=async()=>{
   await db.auth.signOut();
   location.href='/';
 };
-$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',shifts:'Turnos',staff:'Personal',finance:'Contabilidad',customers:'Clientes',promotions:'Promociones',pages:'Páginas',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart();await loadOrders();renderPosPendingOrders()}if(tab==='inventory')await loadInventoryData();if(tab==='staff'){
+$$('.sidebar [data-tab]').forEach(b=>b.onclick=async()=>{const tab=b.dataset.tab;$$('.sidebar [data-tab]').forEach(x=>x.classList.toggle('active',x===b));$$('.tab').forEach(x=>x.classList.add('hidden'));$('#tab-'+tab).classList.remove('hidden');$('#adminTitle').textContent={dashboard:'Resumen',products:'Productos',categories:'Categorías',orders:'Pedidos',kitchen:'Cocina',pos:'POS / Caja',inventory:'Inventario',tables:'Mesas',shifts:'Turnos',staff:'Personal',finance:'Contabilidad',customers:'Clientes',promotions:'Promociones',pages:'Páginas',settings:'Negocio'}[tab];if(tab==='orders'||tab==='kitchen')await loadOrders();if(tab==='dashboard'){await loadOrders();renderMetrics()}if(tab==='kitchen')startKitchenClock();
+if(tab!=='kitchen'&&kitchenAutoRefreshHandle){
+  clearInterval(kitchenAutoRefreshHandle);
+  kitchenAutoRefreshHandle=null;
+}if(tab==='pos'){fillPosCategories();renderPosProducts();renderPosCart();await loadOrders();renderPosPendingOrders()}if(tab==='inventory')await loadInventoryData();if(tab==='staff'){
     if($('#staffSearch'))$('#staffSearch').value='';
     if($('#staffRoleFilter'))$('#staffRoleFilter').value='all';
     await loadStaff();
@@ -490,14 +494,58 @@ async function updateKitchenStatus(id,status){
     cancelled:'Pedido cancelado'
   };
   toast(messages[status]||`Pedido actualizado: ${statusLabels[status]||status}`);
-  await loadOrders();
+  await Promise.all([
+    refreshKitchenData({silent:true}),
+    typeof loadTables==='function'?loadTables():Promise.resolve()
+  ]);
 }
+function setKitchenSyncStatus(text,busy=false){
+  const label=$('#kitchenSyncText');
+  const status=$('#kitchenEmployeeStatus');
+  if(label)label.textContent=text;
+  if(status)status.classList.toggle('isSyncing',busy);
+}
+
+async function refreshKitchenData({silent=true}={}){
+  if(kitchenRefreshBusy)return;
+  kitchenRefreshBusy=true;
+  setKitchenSyncStatus('Actualizando pedidos...',true);
+
+  try{
+    await loadOrders();
+    lastKitchenRefreshAt=Date.now();
+    const time=new Date().toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    setKitchenSyncStatus(`Cocina actualizada · ${time}`,false);
+    if(!silent)toast('Cocina actualizada');
+  }catch(error){
+    console.error('Error actualizando Cocina:',error);
+    setKitchenSyncStatus('Sincronización pendiente. Reintentando...',false);
+  }finally{
+    kitchenRefreshBusy=false;
+  }
+}
+
 function startKitchenClock(){
   clearInterval(kitchenTimerHandle);
   kitchenTimerHandle=setInterval(()=>{
     $$('[data-created-at]').forEach(el=>el.textContent=elapsedLabel(el.dataset.createdAt));
   },30000);
+
+  clearInterval(kitchenAutoRefreshHandle);
+  kitchenAutoRefreshHandle=setInterval(()=>{
+    const kitchenTab=$('#tab-kitchen');
+    if(kitchenTab&&!kitchenTab.classList.contains('hidden')){
+      refreshKitchenData({silent:true});
+    }
+  },4000);
+
+  refreshKitchenData({silent:true});
 }
+
+if($('#refreshKitchenNow')){
+  $('#refreshKitchenNow').onclick=()=>refreshKitchenData({silent:false});
+}
+
 function playKitchenAlert(){
   if(!$('#kitchenSound')?.checked)return;
   try{
@@ -514,10 +562,10 @@ function subscribeOrdersRealtime(){
   ordersChannel=db.channel('mordisco-orders-live')
     .on('postgres_changes',{event:'*',schema:'public',table:'orders'},async payload=>{
       const isNew=payload.eventType==='INSERT'&&!lastKnownOrderIds.has(payload.new?.id);
-      await loadOrders();
+      await refreshKitchenData({silent:true});
       if(isNew){playKitchenAlert();toast(`Nuevo pedido #${payload.new.order_number||''}`)}
     })
-    .on('postgres_changes',{event:'*',schema:'public',table:'order_items'},async()=>{await loadOrders()})
+    .on('postgres_changes',{event:'*',schema:'public',table:'order_items'},async()=>{await refreshKitchenData({silent:true})})
     .subscribe();
 }
 
@@ -995,7 +1043,7 @@ function renderTables(){
   };
 
   grid.innerHTML=tables.map(table=>`
-    <article class="tableCard ${table.status||'free'}" data-table="${table.id}">
+    <article class="tableCard ${table.status||'free'}" data-table="${table.id}" role="button" tabindex="0">
       <div class="tableStatusDot"></div>
       <span class="tableStatusText">${statusNames[table.status]||'Libre'}</span>
       <div class="tableIcon">🍽️</div>
@@ -1006,7 +1054,14 @@ function renderTables(){
   `).join('');
 
   $$('[data-table]').forEach(card=>{
-    card.onclick=()=>openTable(card.dataset.table);
+    const open=()=>openTableOrder(card.dataset.table);
+    card.onclick=open;
+    card.onkeydown=e=>{
+      if(e.key==='Enter'||e.key===' '){
+        e.preventDefault();
+        open();
+      }
+    };
   });
 }
 function fillTableSelectors(){
@@ -1018,11 +1073,32 @@ function getTableProducts(){
 }
 function renderTableProducts(){
   const list=getTableProducts();
-  $('#tableProducts').innerHTML=list.map(p=>`<button class="posProduct" data-table-add="${p.id}">
-    ${p.image_url?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}">`:'<div class="posProductNoImage">Sin imagen</div>'}
-    <span class="posProductInfo"><small>${esc(p.categories?.name||'')}</small><b>${esc(p.name)}</b><strong>${money(p.price)}</strong></span>
-  </button>`).join('');
-  $$('[data-table-add]').forEach(b=>b.onclick=()=>{const r=tableCart.find(x=>String(x.id)===String(b.dataset.tableAdd));if(r)r.qty++;else tableCart.push({id:b.dataset.tableAdd,qty:1});renderTableCart()});
+  const container=$('#tableProducts');
+  if(!container)return;
+
+  container.innerHTML=list.length?list.map(p=>`
+    <button class="tableProductCompact" data-table-add="${p.id}" title="${esc(p.name)}">
+      ${p.image_url
+        ?`<img src="${esc(p.image_url)}" alt="${esc(p.name)}" loading="lazy">`
+        :`<div class="tableProductPlaceholder">🍔</div>`}
+      <span class="tableProductCompactInfo">
+        <b>${esc(p.name)}</b>
+        <strong>${money(p.price)}</strong>
+      </span>
+    </button>
+  `).join(''):`<div class="tableProductsEmpty">No hay productos disponibles.</div>`;
+
+  $$('[data-table-add]').forEach(button=>{
+    button.onclick=()=>{
+      const row=tableCart.find(item=>String(item.id)===String(button.dataset.tableAdd));
+      if(row)row.qty++;
+      else tableCart.push({id:button.dataset.tableAdd,qty:1});
+      renderTableCart();
+
+      button.classList.add('productAddedPulse');
+      setTimeout(()=>button.classList.remove('productAddedPulse'),260);
+    };
+  });
 }
 function renderTableCart(){
   const total=tableCart.reduce((s,r)=>{const p=products.find(x=>String(x.id)===String(r.id));return s+(p?Number(p.price)*r.qty:0)},0);
