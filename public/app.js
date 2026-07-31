@@ -22,7 +22,10 @@ async function init(){
   if(employeeMode){
     let savedEmployee=null;
     try{savedEmployee=JSON.parse(localStorage.getItem('mordisco_employee')||'null')}catch{}
-    if(!savedEmployee?.id||!savedEmployee?.role){
+    const staffToken=localStorage.getItem('mordisco_staff_token');
+    if(!savedEmployee?.id||!savedEmployee?.role||!staffToken){
+      localStorage.removeItem('mordisco_employee');
+      localStorage.removeItem('mordisco_staff_token');
       location.href='/staff';
       return;
     }
@@ -134,6 +137,8 @@ $('#backToStore').onclick=()=>location.href='/';
 $('#logoutBtn').onclick=async()=>{
   if(currentEmployee){
     localStorage.removeItem('mordisco_employee');
+    localStorage.removeItem('mordisco_staff_token');
+    localStorage.removeItem('mordisco_staff_session_expires');
     currentEmployee=null;
     location.href='/staff';
     return;
@@ -420,9 +425,9 @@ function kitchenCard(o){
   const late=mins>=20&&o.status!=='ready';
   let actions='';
   if(o.status==='pending'||o.status==='confirmed'){
-    actions=`<button class="primary" data-kitchen-status="${o.id}" data-next-status="preparing">Empezar preparación</button><button class="danger" data-kitchen-status="${o.id}" data-next-status="cancelled">Cancelar</button>`;
+    actions=`<button class="primary" data-kitchen-status="${o.id}" data-next-status="preparing">Aceptar pedido</button><button class="danger" data-kitchen-status="${o.id}" data-next-status="cancelled">Cancelar</button>`;
   }else if(o.status==='preparing'){
-    actions=`<button class="success" data-kitchen-status="${o.id}" data-next-status="ready">Marcar como listo</button>`;
+    actions=`<button class="success" data-kitchen-status="${o.id}" data-next-status="ready">✓ Avisar que está listo</button>`;
   }else if(o.status==='ready'){
     actions=`<button class="dark" data-kitchen-status="${o.id}" data-next-status="delivered">Entregar pedido</button>`;
   }
@@ -448,9 +453,43 @@ function renderKitchen(){
   $$('[data-kitchen-status]').forEach(b=>b.onclick=()=>updateKitchenStatus(b.dataset.kitchenStatus,b.dataset.nextStatus));
 }
 async function updateKitchenStatus(id,status){
-  const {error}=await db.from('orders').update({status}).eq('id',id);
-  if(error)return toast(error.message);
-  toast(`Pedido actualizado: ${statusLabels[status]||status}`);
+  let error=null;
+
+  if(currentEmployee?.role==='kitchen'){
+    const token=localStorage.getItem('mordisco_staff_token');
+    if(!token){
+      toast('La sesión de Cocina venció. Ingresa nuevamente.');
+      setTimeout(()=>location.href='/staff',800);
+      return;
+    }
+
+    const result=await db.rpc('kitchen_update_order',{
+      p_session_token:token,
+      p_order_id:id,
+      p_new_status:status
+    });
+    error=result.error;
+  }else{
+    const result=await db.from('orders').update({status}).eq('id',id);
+    error=result.error;
+  }
+
+  if(error){
+    console.error('Error actualizando cocina:',error);
+    if(String(error.message||'').toLowerCase().includes('sesión')){
+      localStorage.removeItem('mordisco_staff_token');
+      localStorage.removeItem('mordisco_employee');
+    }
+    return toast('No se pudo actualizar: '+error.message);
+  }
+
+  const messages={
+    preparing:'Pedido aceptado y en preparación',
+    ready:'Pedido listo. Caja y Mesas fueron avisados',
+    delivered:'Pedido entregado',
+    cancelled:'Pedido cancelado'
+  };
+  toast(messages[status]||`Pedido actualizado: ${statusLabels[status]||status}`);
   await loadOrders();
 }
 function startKitchenClock(){

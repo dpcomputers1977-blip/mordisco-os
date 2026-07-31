@@ -1002,3 +1002,32 @@ body.employeeMode .deleteSaleBtn{
     width:100%;
   }
 }
+
+/* V13.14 — COCINA OPERATIVA */
+.kitchenEmployeeStatus{
+  padding:9px 12px;
+  border-radius:10px;
+  background:#e6f6eb;
+  color:#176a37;
+  font-size:.78rem;
+  font-weight:800;
+}
+.kitchenCardActions{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.kitchenCardActions button{
+  flex:1;
+  min-width:140px;
+  min-height:44px;
+}
+@media(max-width:600px){
+  .kitchenToolbar{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+  .kitchenEmployeeStatus{
+    width:100%;
+  }
+}
