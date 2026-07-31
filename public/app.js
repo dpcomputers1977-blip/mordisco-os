@@ -934,27 +934,81 @@ $$('[data-close="shiftPinModal"]').forEach(b=>b.onclick=()=>$('#shiftPinModal').
 
 function tableStatusLabel(status){return({free:'Libre',occupied:'Ocupada',preparing:'Preparando',payment:'Por cobrar'})[status]||status}
 async function loadTables(){
-  const {data,error}=await db.from('restaurant_tables').select('*,staff(name)').order('sort_order');
-  if(error)return toast('Primero ejecuta el SQL V9 en Supabase');
-  tables=data||[];renderTables();
+  try{
+    const {data,error}=await db
+      .from('restaurant_tables')
+      .select('id,name,seats,status,sort_order,current_order_id,staff_id,created_at,updated_at')
+      .order('sort_order');
+
+    if(error)throw error;
+
+    const tableRows=data||[];
+    const staffIds=[...new Set(tableRows.map(t=>t.staff_id).filter(Boolean))];
+    let staffMap={};
+
+    if(staffIds.length){
+      const {data:staffData,error:staffError}=await db
+        .from('staff')
+        .select('id,name')
+        .in('id',staffIds);
+
+      if(staffError){
+        console.warn('No se pudieron cargar los nombres de meseros:',staffError);
+      }else{
+        staffMap=Object.fromEntries((staffData||[]).map(s=>[String(s.id),s]));
+      }
+    }
+
+    tables=tableRows.map(t=>({
+      ...t,
+      staff:t.staff_id?(staffMap[String(t.staff_id)]||null):null
+    }));
+
+    renderTables();
+  }catch(error){
+    console.error('Error real cargando Mesas:',error);
+    tables=[];
+    renderTables();
+    toast('No se pudieron cargar las mesas: '+(error?.message||'Error desconocido'));
+  }
 }
 function renderTables(){
-  if(!$('#tablesGrid'))return;
-  $('#tablesFreeCount').textContent=tables.filter(t=>t.status==='free').length;
-  $('#tablesBusyCount').textContent=tables.filter(t=>['occupied','preparing'].includes(t.status)).length;
-  $('#tablesPaymentCount').textContent=tables.filter(t=>t.status==='payment').length;
-  $('#tablesGrid').innerHTML=tables.length?tables.map(t=>`<button class="tableCard ${t.status}" data-open-table="${t.id}">
-    <h3>${esc(t.name)}</h3><p>${t.seats} puestos</p><strong>${tableStatusLabel(t.status)}</strong>
-    <div class="tableMeta">${t.staff?.name?`Mesero: ${esc(t.staff.name)}`:'Sin mesero asignado'}</div>
-  </button>`).join(''):'<div class="inventoryEmpty">No hay mesas. Crea la primera.</div>';
-  $$('[data-open-table]').forEach(b=>b.onclick=()=>openTableOrder(b.dataset.openTable));
+  const grid=$('#tablesGrid');
+  if(!grid)return;
+
+  if(!Array.isArray(tables)||tables.length===0){
+    grid.innerHTML=`<div class="tablesEmptyState">
+      <span>🍽️</span>
+      <div>
+        <b>No hay mesas registradas</b>
+        <p>Crea la primera mesa usando el formulario superior.</p>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const statusNames={
+    free:'Libre',
+    occupied:'Ocupada',
+    preparing:'Preparando',
+    payment:'Por cobrar'
+  };
+
+  grid.innerHTML=tables.map(table=>`
+    <article class="tableCard ${table.status||'free'}" data-table="${table.id}">
+      <div class="tableStatusDot"></div>
+      <span class="tableStatusText">${statusNames[table.status]||'Libre'}</span>
+      <div class="tableIcon">🍽️</div>
+      <h3>${esc(table.name)}</h3>
+      <p>${Number(table.seats||0)} puestos</p>
+      ${table.staff?.name?`<small>Mesero: ${esc(table.staff.name)}</small>`:''}
+    </article>
+  `).join('');
+
+  $$('[data-table]').forEach(card=>{
+    card.onclick=()=>openTable(card.dataset.table);
+  });
 }
-$('#createTableBtn').onclick=async()=>{
-  const name=$('#newTableName').value.trim();if(!name)return toast('Escribe el nombre de la mesa');
-  const payload={name,seats:Number($('#newTableSeats').value||4),sort_order:tables.length+1};
-  const {error}=await db.from('restaurant_tables').insert(payload);if(error)return toast(error.message);
-  $('#newTableName').value='';toast('Mesa creada');await loadTables();
-};
 function fillTableSelectors(){
   $('#tableCategory').innerHTML='<option value="all">Todas las categorías</option>'+categories.filter(c=>c.active).map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
 }
@@ -991,11 +1045,38 @@ $('#sendTableOrder').onclick=async()=>{
   const {data,error}=await db.from('orders').insert(order).select().single();if(error)return toast(error.message);
   const items=tableCart.map(r=>{const p=products.find(x=>String(x.id)===String(r.id));return{order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:r.qty,subtotal:Number(p.price)*r.qty}});
   const {error:itemError}=await db.from('order_items').insert(items);if(itemError)return toast(itemError.message);
-  await db.from('restaurant_tables').update({status:'preparing',current_order_id:data.id,staff_id:order.waiter_id,updated_at:new Date().toISOString()}).eq('id',currentTable.id);
-  toast(`Comanda #${data.order_number} enviada a cocina`);$('#tableOrderModal').classList.add('hidden');await loadTables();await loadOrders();
+  const {error:tableUpdateError}=await db.from('restaurant_tables')
+    .update({status:'preparing',current_order_id:data.id,staff_id:order.waiter_id,updated_at:new Date().toISOString()})
+    .eq('id',currentTable.id);
+
+  if(tableUpdateError){
+    console.error('La comanda se creó pero no se actualizó la mesa:',tableUpdateError);
+    toast('Comanda enviada, pero no se pudo actualizar la mesa: '+(tableUpdateError.message||'Error desconocido'));
+  }else{
+    toast(`Comanda #${data.order_number} enviada a cocina`);
+  }
+  $('#tableOrderModal').classList.add('hidden');await loadTables();await loadOrders();
 };
-$('#markTablePayment').onclick=async()=>{if(!currentTable)return;await db.from('restaurant_tables').update({status:'payment',updated_at:new Date().toISOString()}).eq('id',currentTable.id);toast('Mesa pendiente de cobro');$('#tableOrderModal').classList.add('hidden');await loadTables()};
-$('#freeTable').onclick=async()=>{if(!currentTable)return;await db.from('restaurant_tables').update({status:'free',current_order_id:null,staff_id:null,updated_at:new Date().toISOString()}).eq('id',currentTable.id);toast('Mesa liberada');$('#tableOrderModal').classList.add('hidden');await loadTables()};
+$('#markTablePayment').onclick=async()=>{
+  if(!currentTable)return;
+  const {error}=await db.from('restaurant_tables')
+    .update({status:'payment',updated_at:new Date().toISOString()})
+    .eq('id',currentTable.id);
+  if(error)return toast('No se pudo cambiar la mesa: '+(error.message||'Error desconocido'));
+  toast('Mesa pendiente de cobro');
+  $('#tableOrderModal').classList.add('hidden');
+  await loadTables();
+};
+$('#freeTable').onclick=async()=>{
+  if(!currentTable)return;
+  const {error}=await db.from('restaurant_tables')
+    .update({status:'free',current_order_id:null,staff_id:null,updated_at:new Date().toISOString()})
+    .eq('id',currentTable.id);
+  if(error)return toast('No se pudo liberar la mesa: '+(error.message||'Error desconocido'));
+  toast('Mesa liberada');
+  $('#tableOrderModal').classList.add('hidden');
+  await loadTables();
+};
 
 function staffRoleLabel(role){return({waiter:'Mesero',cashier:'Cajero',kitchen:'Cocina'})[role]||role}
 function staffRoleIcon(role){return({waiter:'🧑‍🍽️',cashier:'💵',kitchen:'👨‍🍳'})[role]||'👤'}
@@ -1234,3 +1315,25 @@ init();
 
 $$('[data-close="employeeLoginModal"]').forEach(b=>b.onclick=()=>$('#employeeLoginModal').classList.add('hidden'));
 $$('[data-close="tableOrderModal"]').forEach(b=>b.onclick=()=>$('#tableOrderModal').classList.add('hidden'));
+
+function cleanupOrphanTableEmptyMessages(){
+  const grid=$('#tablesGrid');
+  if(!grid||!Array.isArray(tables)||!tables.length)return;
+
+  const candidates=[...document.querySelectorAll(
+    '#tab-tables .inventoryEmpty, #tab-tables .notice, #tab-tables .emptyState, #tab-tables .tablesEmptyState'
+  )];
+
+  candidates.forEach(node=>{
+    if(node.closest('#tablesGrid'))return;
+    if((node.textContent||'').toLowerCase().includes('no hay mesas registradas')){
+      node.remove();
+    }
+  });
+}
+
+const originalRenderTables=renderTables;
+renderTables=function(){
+  originalRenderTables();
+  cleanupOrphanTableEmptyMessages();
+};
