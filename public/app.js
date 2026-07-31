@@ -983,44 +983,104 @@ $$('[data-close="shiftPinModal"]').forEach(b=>b.onclick=()=>$('#shiftPinModal').
 function tableStatusLabel(status){return({free:'Libre',occupied:'Ocupada',preparing:'Preparando',payment:'Por cobrar'})[status]||status}
 async function loadTables(){
   try{
-    const {data,error}=await db
+    let tableRows=[];
+    let error=null;
+
+    // Primera consulta: esquema completo actual.
+    let result=await db
       .from('restaurant_tables')
-      .select('id,name,seats,status,sort_order,current_order_id,staff_id,created_at,updated_at')
-      .order('sort_order');
+      .select('*')
+      .order('sort_order',{ascending:true});
+
+    if(result.error){
+      console.warn('Consulta completa de mesas falló, intentando modo compatible:',result.error);
+
+      // Segunda consulta: compatible con instalaciones antiguas.
+      result=await db
+        .from('restaurant_tables')
+        .select('*');
+
+      if(result.error){
+        error=result.error;
+      }else{
+        tableRows=result.data||[];
+      }
+    }else{
+      tableRows=result.data||[];
+    }
 
     if(error)throw error;
 
-    const tableRows=data||[];
+    tableRows.sort((a,b)=>{
+      const sa=Number(a.sort_order??0);
+      const sb=Number(b.sort_order??0);
+      if(sa!==sb)return sa-sb;
+      return String(a.name||'').localeCompare(String(b.name||''),'es');
+    });
+
     const staffIds=[...new Set(tableRows.map(t=>t.staff_id).filter(Boolean))];
     let staffMap={};
 
     if(staffIds.length){
-      const {data:staffData,error:staffError}=await db
+      const staffResult=await db
         .from('staff')
         .select('id,name')
         .in('id',staffIds);
 
-      if(staffError){
-        console.warn('No se pudieron cargar los nombres de meseros:',staffError);
+      if(staffResult.error){
+        console.warn('No se pudieron cargar los nombres de meseros:',staffResult.error);
       }else{
-        staffMap=Object.fromEntries((staffData||[]).map(s=>[String(s.id),s]));
+        staffMap=Object.fromEntries((staffResult.data||[]).map(s=>[String(s.id),s]));
       }
     }
 
-    tables=tableRows.map(t=>({
+    tables=tableRows.map((t,index)=>({
       ...t,
+      seats:Number(t.seats??t.capacity??4),
+      status:t.status||'free',
+      sort_order:Number(t.sort_order??index),
       staff:t.staff_id?(staffMap[String(t.staff_id)]||null):null
     }));
 
     renderTables();
+    updateTableCounters();
   }catch(error){
     console.error('Error real cargando Mesas:',error);
     tables=[];
     renderTables();
+    updateTableCounters();
     toast('No se pudieron cargar las mesas: '+(error?.message||'Error desconocido'));
   }
 }
+function updateTableCounters(){
+  const free=tables.filter(t=>(t.status||'free')==='free').length;
+  const occupied=tables.filter(t=>['occupied','preparing'].includes(t.status)).length;
+  const pending=tables.filter(t=>t.status==='payment').length;
+
+  const map={
+    tableFreeCount:free,
+    tableOccupiedCount:occupied,
+    tablePendingCount:pending
+  };
+
+  Object.entries(map).forEach(([id,value])=>{
+    const el=document.getElementById(id);
+    if(el)el.textContent=value;
+  });
+
+  // Compatibilidad con versiones donde los contadores no tienen ID.
+  const cards=[...document.querySelectorAll('#tab-tables .metricCard, #tab-tables .tableMetric')];
+  if(cards.length>=3){
+    const values=[free,occupied,pending];
+    cards.slice(0,3).forEach((card,index)=>{
+      const number=card.querySelector('strong,b,.metricValue');
+      if(number)number.textContent=values[index];
+    });
+  }
+}
+
 function renderTables(){
+  updateTableCounters();
   const grid=$('#tablesGrid');
   if(!grid)return;
 
@@ -1153,6 +1213,56 @@ $('#freeTable').onclick=async()=>{
   $('#tableOrderModal').classList.add('hidden');
   await loadTables();
 };
+
+
+if($('#createTableBtn')){
+  $('#createTableBtn').onclick=async()=>{
+    const name=($('#newTableName')?.value||'').trim();
+    const seats=Math.max(1,Number($('#newTableSeats')?.value||4));
+
+    if(!name)return toast('Escribe el nombre de la mesa');
+
+    const button=$('#createTableBtn');
+    button.disabled=true;
+    button.textContent='Creando...';
+
+    const payload={
+      name,
+      seats,
+      status:'free',
+      sort_order:tables.length
+    };
+
+    let result=await db.from('restaurant_tables').insert(payload).select().single();
+
+    // Compatibilidad: algunas bases antiguas no tienen sort_order.
+    if(result.error&&String(result.error.message||'').toLowerCase().includes('sort_order')){
+      delete payload.sort_order;
+      result=await db.from('restaurant_tables').insert(payload).select().single();
+    }
+
+    // Compatibilidad: algunas bases usan capacity en vez de seats.
+    if(result.error&&String(result.error.message||'').toLowerCase().includes('seats')){
+      delete payload.seats;
+      payload.capacity=seats;
+      result=await db.from('restaurant_tables').insert(payload).select().single();
+    }
+
+    button.disabled=false;
+    button.textContent='Crear mesa';
+
+    if(result.error){
+      console.error('Error creando mesa:',result.error);
+      return toast('No se pudo crear la mesa: '+(result.error.message||'Error desconocido'));
+    }
+
+    if($('#newTableName'))$('#newTableName').value='';
+    if($('#newTableSeats'))$('#newTableSeats').value='4';
+
+    toast(`${name} creada correctamente`);
+    await loadTables();
+  };
+}
 
 function staffRoleLabel(role){return({waiter:'Mesero',cashier:'Cajero',kitchen:'Cocina'})[role]||role}
 function staffRoleIcon(role){return({waiter:'🧑‍🍽️',cashier:'💵',kitchen:'👨‍🍳'})[role]||'👤'}
