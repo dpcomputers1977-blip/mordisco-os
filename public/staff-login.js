@@ -1,3 +1,36 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Personal | Mordisco V13.10</title>
+  <link rel="stylesheet" href="/portal.css?v=13.10">
+  <meta name="theme-color" content="#11100e">
+</head>
+<body>
+<main class="portalWrap">
+  <form id="staffLoginForm" class="portalCard" autocomplete="off">
+    <img src="/mordisco-logo.png" alt="Mordisco">
+    <span>PORTAL DEL PERSONAL</span>
+    <h1>Iniciar sesión</h1>
+    <p>Selecciona tu nombre e ingresa tu PIN.</p>
+
+    <label for="staffEmployee">Empleado</label>
+    <select id="staffEmployee" name="employee_id" required>
+      <option value="">Cargando empleados...</option>
+    </select>
+
+    <label for="staffPin">PIN</label>
+    <input id="staffPin" name="employee_pin" type="password"
+           inputmode="numeric" pattern="[0-9]*" maxlength="6"
+           autocomplete="new-password" placeholder="PIN de 4 a 6 números" required>
+
+    <button id="staffLogin" type="submit">Ingresar</button>
+    <small id="staffMessage" role="alert">Iniciando sistema de empleados...</small>
+    <a href="/">Volver a la página</a>
+  </form>
+</main>
+<script>
 (() => {
   'use strict';
 
@@ -183,3 +216,7 @@
 
   loadEmployees();
 })();
+
+</script>
+</body>
+</html>
