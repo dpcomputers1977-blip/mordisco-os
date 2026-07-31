@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Personal | Mordisco V13.14</title>
-  <link rel="stylesheet" href="/portal.css?v=13.14">
+  <title>Personal | Mordisco V13.10</title>
+  <link rel="stylesheet" href="/portal.css?v=13.10">
   <meta name="theme-color" content="#11100e">
 </head>
 <body>
@@ -114,12 +114,12 @@
     }
   }
 
-  async function createEmployeeSession(employeeId, pin) {
+  async function verifyPin(employeeId, pin) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
 
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/employee_login`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/verify_staff_pin`, {
         method: 'POST',
         signal: controller.signal,
         headers: {
@@ -128,8 +128,8 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          p_staff_id: employeeId,
-          p_pin: pin
+          staff_id: employeeId,
+          staff_pin: pin
         })
       });
 
@@ -144,7 +144,7 @@
         throw new Error(detail);
       }
 
-      return result;
+      return result === true || result === 'true';
     } finally {
       clearTimeout(timeout);
     }
@@ -186,21 +186,19 @@
     showMessage('Validando acceso...', false);
 
     try {
-      const session = await createEmployeeSession(employeeId, pin);
-      if (!session?.token) {
+      const valid = await verifyPin(employeeId, pin);
+      if (!valid) {
         showMessage('PIN incorrecto.');
         pinInput.select();
         return;
       }
 
-      const employee = {
-        id: session.staff_id,
-        name: session.name,
-        role: session.role
-      };
+      const employee = employees.find((item) => item.id === employeeId);
+      if (!employee) {
+        showMessage('No se encontró la información del empleado.');
+        return;
+      }
 
-      localStorage.setItem('mordisco_staff_token', session.token);
-      localStorage.setItem('mordisco_staff_session_expires', session.expires_at || '');
       showMessage(`Bienvenido, ${employee.name}.`, false);
       setTimeout(() => redirectEmployee(employee), 350);
     } catch (error) {

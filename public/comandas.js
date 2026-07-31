@@ -1,51 +1,12 @@
 
-const db=supabase.createClient("https://nmmjthqflxwucpmmmrks.supabase.co","sb_publishable_izCztp4wZ0MzKOHjT2KGYA_ot_3pgb0");
-const $=s=>document.querySelector(s);
-let staff=[],tables=[],products=[],categories=[],employee=null,currentTable=null,cart=[];
-const money=n=>new Intl.NumberFormat('es-EC',{style:'currency',currency:'USD'}).format(Number(n||0));
-const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-function toast(m){const t=$('#commandToast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600)}
-function statusLabel(s){return ({free:'Libre',occupied:'Ocupada',preparing:'Preparando',payment:'Por cobrar'})[s]||s}
-async function loadBase(){
- const [a,b,c,d]=await Promise.all([
-  db.from('staff').select('id,name,role,active').eq('active',true).in('role',['waiter','cashier']),
-  db.from('restaurant_tables').select('*').eq('active',true).order('sort_order'),
-  db.from('products').select('*,categories(name)').eq('active',true),
-  db.from('categories').select('*').eq('active',true).order('sort_order')
- ]);
- if(a.error)return toast(a.error.message);staff=a.data||[];tables=b.data||[];products=c.data||[];categories=d.data||[];
- $('#commandEmployee').innerHTML=staff.map(s=>`<option value="${s.id}">${esc(s.name)} — ${s.role==='waiter'?'Mesero':'Cajero'}</option>`).join('');
- renderTables();fillCategories();
-}
-async function login(){
- const id=$('#commandEmployee').value,pin=$('#commandPin').value.trim();
- if(!/^\d{4,6}$/.test(pin))return toast('PIN inválido');
- const {data,error}=await db.rpc('verify_staff_pin',{staff_id:id,staff_pin:pin});
- if(error){console.error('Error verificando PIN:',error);return toast('No se pudo validar el PIN. Ejecuta el SQL V13.8')}
- if(!data)return toast('PIN incorrecto');
- employee=staff.find(s=>s.id===id);sessionStorage.setItem('commandEmployee',JSON.stringify(employee));
- $('#commandEmployeeName').textContent=employee.name;$('#commandLogin').classList.add('hidden');$('#commandApp').classList.remove('hidden');renderTables();
-}
-function renderTables(){
- if(!$('#commandTables'))return;
- $('#commandTables').innerHTML=tables.map(t=>`<button class="commandTable ${t.status}" data-id="${t.id}"><h3>${esc(t.name)}</h3><span>${t.seats} puestos</span><strong>${statusLabel(t.status)}</strong></button>`).join('');
- document.querySelectorAll('.commandTable').forEach(b=>b.onclick=()=>openTable(b.dataset.id));
-}
-function fillCategories(){$('#commandCategory').innerHTML='<option value="all">Todas</option>'+categories.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}
-function openTable(id){currentTable=tables.find(t=>t.id===id);cart=[];$('#commandTableName').textContent=currentTable.name;$('#commandApp').classList.add('hidden');$('#commandOrder').classList.remove('hidden');renderProducts();renderCart()}
-function filteredProducts(){const q=$('#commandSearch').value.toLowerCase(),cat=$('#commandCategory').value;return products.filter(p=>(cat==='all'||String(p.category_id)===cat)&&(`${p.name} ${p.description||''}`).toLowerCase().includes(q))}
-function renderProducts(){$('#commandProducts').innerHTML=filteredProducts().map(p=>`<button class="commandProduct" data-id="${p.id}">${p.image_url?`<img src="${esc(p.image_url)}">`:''}<div><b>${esc(p.name)}</b><strong>${money(p.price)}</strong></div></button>`).join('');document.querySelectorAll('.commandProduct').forEach(b=>b.onclick=()=>{const r=cart.find(x=>x.id===b.dataset.id);if(r)r.qty++;else cart.push({id:b.dataset.id,qty:1});renderCart()})}
-function renderCart(){let total=0;$('#commandCartItems').innerHTML=cart.length?cart.map(r=>{const p=products.find(x=>x.id===r.id);total+=Number(p.price)*r.qty;return `<div class="cartLine"><span>${esc(p.name)} × ${r.qty}</span><div><button data-minus="${r.id}">−</button><button data-plus="${r.id}">+</button></div></div>`}).join(''):'Sin productos';$('#commandCartTotal').textContent=money(total);document.querySelectorAll('[data-minus]').forEach(b=>b.onclick=()=>{const r=cart.find(x=>x.id===b.dataset.minus);r.qty--;cart=cart.filter(x=>x.qty>0);renderCart()});document.querySelectorAll('[data-plus]').forEach(b=>b.onclick=()=>{cart.find(x=>x.id===b.dataset.plus).qty++;renderCart()})}
-async function sendCommand(){
- if(!employee)return toast('Inicia sesión');
- if(!cart.length)return toast('Agrega productos');
- const total=cart.reduce((s,r)=>{const p=products.find(x=>x.id===r.id);return s+Number(p.price)*r.qty},0);
- const order={customer_name:$('#commandCustomer').value.trim()||currentTable.name,customer_phone:'',customer_address:'',order_type:'local',payment_method:null,payment_status:'unpaid',notes:`${currentTable.name}. ${$('#commandNotes').value.trim()}`,subtotal:total,delivery_cost:0,total,status:'pending',waiter_id:employee.role==='waiter'?employee.id:null,cashier_id:employee.role==='cashier'?employee.id:null,table_id:currentTable.id};
- const {data,error}=await db.from('orders').insert(order).select().single();if(error)return toast(error.message);
- const items=cart.map(r=>{const p=products.find(x=>x.id===r.id);return {order_id:data.id,product_id:p.id,product_name:p.name,unit_price:p.price,quantity:r.qty,subtotal:Number(p.price)*r.qty}});
- const {error:itemError}=await db.from('order_items').insert(items);if(itemError)return toast(itemError.message);
- await db.from('restaurant_tables').update({status:'preparing',current_order_id:data.id,staff_id:employee.id,updated_at:new Date().toISOString()}).eq('id',currentTable.id);
- toast(`Comanda #${data.order_number} enviada`);setTimeout(()=>location.reload(),1200);
-}
-$('#commandLoginBtn').onclick=login;$('#commandPin').onkeydown=e=>{if(e.key==='Enter')login()};$('#backTables').onclick=()=>{$('#commandOrder').classList.add('hidden');$('#commandApp').classList.remove('hidden')};$('#commandSearch').oninput=renderProducts;$('#commandCategory').onchange=renderProducts;$('#sendCommand').onclick=sendCommand;$('#refreshCommand').onclick=()=>location.reload();$('#logoutCommand').onclick=()=>{sessionStorage.clear();location.reload()};
-loadBase();
+:root{--dark:#171512;--gold:#ffc400;--cream:#f6f0e6;--red:#c9362b;--green:#239b55}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--cream);color:#211e19}
+header{height:68px;background:var(--dark);color:white;display:flex;align-items:center;padding:10px 16px;gap:10px;position:sticky;top:0;z-index:10}header img{width:48px;height:48px;object-fit:contain}header div{display:flex;flex-direction:column}header span{font-size:.8rem;color:#d7ccbd}header button{margin-left:auto;background:#fff1;border:1px solid #fff3;color:white;border-radius:9px;padding:9px 12px}
+main{padding:14px}.hidden{display:none!important}.loginCard{max-width:420px;margin:8vh auto;background:white;border-radius:22px;padding:24px;box-shadow:0 16px 45px #0002;text-align:center}.loginCard img{width:120px;height:100px;object-fit:contain}.loginCard input,.loginCard select,.loginCard button{width:100%;padding:14px;margin-top:10px;border-radius:12px;border:1px solid #d9d0c3;font-size:1rem}.loginCard button,#sendCommand{background:var(--gold);border:0;font-weight:900}
+.welcome,.orderTop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.welcome h2{margin:2px 0}.welcome button,.orderTop button{border:0;background:var(--dark);color:white;border-radius:10px;padding:10px}
+.commandTables{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.commandTable{border:0;border-radius:18px;padding:18px;text-align:left;min-height:135px;box-shadow:0 8px 25px #0001}.commandTable.free{background:#e9f8ee}.commandTable.occupied{background:#fff3ce}.commandTable.preparing{background:#ffe7d7}.commandTable.payment{background:#ffe0dc}.commandTable h3{margin:0;font-size:1.3rem}.commandTable strong{display:block;margin-top:18px}
+.commandSearch{display:grid;grid-template-columns:1fr 180px;gap:8px;margin-bottom:12px}.commandSearch input,.commandSearch select,.commandCart input,.commandCart textarea{width:100%;padding:12px;border:1px solid #d8cec0;border-radius:10px}
+.commandProducts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-bottom:260px}.commandProduct{background:white;border:0;border-radius:15px;overflow:hidden;text-align:left;box-shadow:0 6px 18px #0001}.commandProduct img{width:100%;height:110px;object-fit:cover}.commandProduct div{padding:10px}.commandProduct b{display:block}.commandProduct strong{color:#8b6500}
+.commandCart{position:fixed;left:0;right:0;bottom:0;background:white;border-radius:20px 20px 0 0;padding:14px;box-shadow:0 -8px 30px #0002;max-height:250px;overflow:auto}.commandCart h3{margin:0 0 8px}.cartLine{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:7px 0}.cartLine button{border:0;border-radius:8px;padding:5px 9px}.commandCart textarea{height:55px;margin-top:7px}.commandCart input{margin-top:7px}#sendCommand{width:100%;padding:13px;border-radius:11px;margin-top:8px}
+#commandToast{position:fixed;top:82px;left:50%;transform:translateX(-50%);background:#171512;color:white;padding:11px 16px;border-radius:10px;display:none;z-index:50}
+@media(max-width:720px){.commandTables{grid-template-columns:repeat(2,1fr)}.commandProducts{grid-template-columns:repeat(2,1fr)}.commandSearch{grid-template-columns:1fr}}
